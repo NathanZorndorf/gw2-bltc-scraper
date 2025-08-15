@@ -121,6 +121,7 @@ df["ROI (%)"] = 0
 df["Demand-Supply Gap (%)"] = 0
 df["ROI (Target %)"] = ROI_TARGET_DEFAULT
 df["Bid / Item (g)"] = 0
+df["Overcut (%) - WF2"] = 0
 df["Offer / Item (g)"] = 0
 df["Theoretical Profit - WF2"] = 0
 df["Buy Order Placed"] = False
@@ -132,7 +133,7 @@ final_column_order = [
     "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
     "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
     "Qty", "Theoretical Profit - WF1", "Amount Received", "ROI (%)",
-    "Demand-Supply Gap (%)", "ROI (Target %)", "Bid / Item (g)", "Offer / Item (g)",
+    "Demand-Supply Gap (%)", "ROI (Target %)", "Bid / Item (g)", "Overcut (%) - WF2", "Offer / Item (g)",
     "Theoretical Profit - WF2",
     "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
@@ -160,19 +161,20 @@ max_row = ws.max_row
 for row in range(2, max_row + 1):  # Format all rows, not just new ones
     ws[f'{L("Buy (g.s)")}{row}'].number_format = '0.00'
     ws[f'{L("Sell (g.s)")}{row}'].number_format = '0.00'
-    ws[f'{L("Overcut (%)")}{row}'].number_format = '0.00%'
-    ws[f'{L("Undercut (%)")}{row}'].number_format = '0.00%'
+    ws[f'{L("Overcut (%)")}{row}'].number_format = '0%'
+    ws[f'{L("Undercut (%)")}{row}'].number_format = '0%'
     ws[f'{L("Overcut (g)")}{row}'].number_format = '0.00'
     ws[f'{L("Undercut (g)")}{row}'].number_format = '0.00'
     ws[f'{L("Qty")}{row}'].number_format = '0'
     ws[f'{L("Theoretical Profit - WF1")}{row}'].number_format = '0.00'
     ws[f'{L("Amount Received")}{row}'].number_format = '0.00'
-    ws[f'{L("ROI (%)")}{row}'].number_format = '0.00%'
-    ws[f'{L("ROI (Target %)")}{row}'].number_format = '0.00%'
+    ws[f'{L("ROI (%)")}{row}'].number_format = '0%'
+    ws[f'{L("ROI (Target %)")}{row}'].number_format = '0%'
     ws[f'{L("Bid / Item (g)")}{row}'].number_format = '0.00'
+    ws[f'{L("Overcut (%) - WF2")}{row}'].number_format = '0%'
     ws[f'{L("Offer / Item (g)")}{row}'].number_format = '0.00'
     ws[f'{L("Theoretical Profit - WF2")}{row}'].number_format = '0.00'
-    ws[f'{L("Demand-Supply Gap (%)")}{row}'].number_format = '0.00%'
+    ws[f'{L("Demand-Supply Gap (%)")}{row}'].number_format = '0%'
 
     for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
         ws[f'{L(int_col)}{row}'].number_format = '#,##0'
@@ -184,6 +186,7 @@ for row in range(2, max_row + 1):  # Format all rows, not just new ones
     ws[f'{L("ROI (%)")}{row}'].value = f'={L("Theoretical Profit - WF1")}{row}/({L("Overcut (g)")}{row}*{L("Qty")}{row})'
     ws[f'{L("Demand-Supply Gap (%)")}{row}'].value = f'=IF({L("Supply")}{row}=0,"",({L("Demand")}{row}-{L("Supply")}{row})/{L("Supply")}{row})'
     ws[f'{L("Bid / Item (g)")}{row}'].value = f'=({L("Undercut (%)")}{row}*0.85*{L("Sell (g.s)")}{row})/({L("ROI (Target %)")}{row}+1)'
+    ws[f'{L("Overcut (%) - WF2")}{row}'].value = f'=({L("Bid / Item (g)")}{row})/({L("Buy (g.s)")}{row})'
     ws[f'{L("Offer / Item (g)")}{row}'].value = f'={L("Undercut (%)")}{row}*{L("Sell (g.s)")}{row}'
     ws[f'{L("Theoretical Profit - WF2")}{row}'].value = f'=(({L("Offer / Item (g)")}{row}*0.85)-{L("Bid / Item (g)")}{row})*{L("Qty")}{row}'
 
