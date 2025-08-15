@@ -71,8 +71,8 @@ def get_item_names(item_ids):
             names[iid] = f"Item {iid}"
     return names
 
-def filter_last_30_days(transactions, date_field="purchased"):
-    cutoff = datetime.now() - timedelta(days=30)
+def filter_last_7_days(transactions, date_field="purchased"):
+    cutoff = datetime.now() - timedelta(days=7)
     filtered = []
     skipped = 0
     for tx in transactions:
@@ -100,7 +100,7 @@ def filter_last_30_days(transactions, date_field="purchased"):
     return filtered
 
 def aggregate_transactions(buys, sells):
-    # Only include items with at least one buy and one sell in the last 30 days
+    # Only require at least one buy in the last 7 days
     agg = {}
     for tx in buys:
         iid = tx["item_id"]
@@ -120,8 +120,8 @@ def aggregate_transactions(buys, sells):
             continue  # Only include items with buys
         agg[iid]["sold_qty"] += qty
         agg[iid]["received"] += received
-    # Only keep items with at least one buy and one sell
-    return {iid: data for iid, data in agg.items() if data["bought_qty"] > 0 and data["sold_qty"] > 0}
+    # Only keep items with at least one buy
+    return {iid: data for iid, data in agg.items() if data["bought_qty"] > 0}
 
 def save_profit_report(agg, item_names, output_file):
     rows = []
@@ -146,6 +146,8 @@ def save_profit_report(agg, item_names, output_file):
     if df.empty or "ROI (g.s)" not in df.columns:
         print("No transactions to report for the selected period/items.")
         return
+    # Ensure ROI (%) is numeric for sorting/plotting
+    df["ROI (%)"] = pd.to_numeric(df["ROI (%)"], errors="coerce").fillna(0)
     df = df.sort_values("ROI (g.s)", ascending=False)
     df.to_excel(output_file, index=False)
 
@@ -221,8 +223,8 @@ if __name__ == "__main__":
     else:
         print("Fetching transaction history from API...")
         buys, sells = fetch_transactions(api_key)
-        buys = filter_last_30_days(buys, date_field="purchased")
-        sells = filter_last_30_days(sells, date_field="purchased")
+        buys = filter_last_7_days(buys, date_field="purchased")
+        sells = filter_last_7_days(sells, date_field="purchased")
         all_ids = [tx["item_id"] for tx in buys + sells]
         item_names = get_item_names(all_ids)
         agg = aggregate_transactions(buys, sells)
