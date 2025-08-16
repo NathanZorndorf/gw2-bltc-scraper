@@ -180,13 +180,17 @@ def save_profit_report(agg, item_names, output_file):
     # --- Analytics Visualizations ---
     print("Generating analytics visualizations...")
 
+    # Ensure img/ folder exists
+    img_dir = os.path.join(os.path.dirname(output_file), "img")
+    os.makedirs(img_dir, exist_ok=True)
+
     # Pie chart: Profits by item
     top_profit_items = df[df["ROI (g.s)"] > 0].sort_values("ROI (g.s)", ascending=False).head(10)
     plt.figure(figsize=(8,8))
     plt.pie(top_profit_items["ROI (g.s)"], labels=top_profit_items["Item Name"], autopct='%1.1f%%', startangle=140)
     plt.title("Top 10 Profitable Items (ROI in Gold)")
     plt.tight_layout()
-    plt.savefig("profit_pie_chart.png")
+    plt.savefig(os.path.join(img_dir, "profit_pie_chart.png"))
     plt.close()
 
     # Bar chart: ROI (%) by item
@@ -197,7 +201,7 @@ def save_profit_report(agg, item_names, output_file):
     plt.title("Top 10 Items by ROI (%)")
     plt.ylabel("ROI (%)")
     plt.tight_layout()
-    plt.savefig("roi_percent_bar_chart.png")
+    plt.savefig(os.path.join(img_dir, "roi_percent_bar_chart.png"))
     plt.close()
 
     # Bar chart: Highest profit items (ROI (g.s))
@@ -208,10 +212,10 @@ def save_profit_report(agg, item_names, output_file):
     plt.title("Top 10 Highest Profit Items (Gold)")
     plt.ylabel("Profit (g.s)")
     plt.tight_layout()
-    plt.savefig("top_profit_items.png")
+    plt.savefig(os.path.join(img_dir, "top_profit_items.png"))
     plt.close()
 
-    print("Analytics charts saved: profit_pie_chart.png, roi_percent_bar_chart.png, top_profit_items.png")
+    print("Analytics charts saved to img/: profit_pie_chart.png, roi_percent_bar_chart.png, top_profit_items.png")
 
 # --------------------
 # MAIN ENTRY FOR PROFIT REPORT
