@@ -112,45 +112,37 @@ df = pd.DataFrame(all_rows, columns=[
     "Demand", "Supply", "Bought", "Sold", "Bids", "Offers"
 ])
 
-# Insert new columns after "Offers"
-insert_after = "Offers"
-insert_idx = df.columns.get_loc(insert_after) + 1
-new_cols = [
-    "Buy-Through Rate (%)", "Sell-Through Rate (%)",
-    "P(Sell = Qty)", "P(Buy = Qty)", "P(Successful Flip)"
+# Update columns to match scraper-formulas.csv
+final_column_order = [
+    "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
+    "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
+    "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
+    "Max Flips / Day", "Bought/Bids", "Sold/Offers",
+    "Buy-Through Rate (%)", "Sell-Through Rate (%)", "Flip-Through Rate (%)",
+    "E(Profit | Qty = 1)", "E(ROI | Qty = 1)", "P(Buy = Qty)", "P(Sell = Qty)",
+    "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
+    "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)",
+    "Actual Qty Ordered", "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
-for i, col in enumerate(new_cols):
-    df.insert(insert_idx + i, col, 0)
 
+# Add new columns to DataFrame
+for col in final_column_order:
+    if col not in df.columns:
+        df[col] = 0 if "Qty" in col or "Order" in col or "Sold" in col else ""
+
+# Set default values for overcut/undercut columns using constants
 df["Overcut (%)"] = OVERCUT_PCT_DEFAULT
 df["Undercut (%)"] = UNDERCUT_PCT_DEFAULT
-df["Overcut (g)"] = 0
-df["Undercut (g)"] = 0
-df["Qty"] = QTY_DEFAULT
-df["Theoretical Profit - WF1"] = 0
-df["Amount Received"] = 0
-df["ROI (%)"] = 0
-df["Demand-Supply Gap (%)"] = 0
-df["ROI (Target %)"] = ROI_TARGET_DEFAULT
-df["Bid / Item (g)"] = 0
-df["Overcut (%) - WF2"] = 0
-df["Offer / Item (g)"] = 0
-df["Theoretical Profit - WF2"] = 0
+
+# Set default values for boolean columns
 df["Buy Order Placed"] = False
 df["Sell Order Placed"] = False
 df["Sold (manual)"] = False
 
-final_column_order = [
-    "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
-    "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
-    "Buy-Through Rate (%)", "Sell-Through Rate (%)",
-    "P(Sell = Qty)", "P(Buy = Qty)", "P(Successful Flip)",
-    "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
-    "Qty", "Theoretical Profit - WF1", "Amount Received", "ROI (%)",
-    "Demand-Supply Gap (%)", "ROI (Target %)", "Bid / Item (g)", "Overcut (%) - WF2", "Offer / Item (g)",
-    "Theoretical Profit - WF2",
-    "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
-]
+# Set default for Actual Qty Ordered
+df["Actual Qty Ordered"] = QTY_DEFAULT
+
+# Reorder columns
 df = df[final_column_order]
 
 # --------------------
@@ -172,51 +164,54 @@ header_to_idx = {str(cell.value).strip(): idx for idx, cell in enumerate(ws[1], 
 def L(name): return get_column_letter(header_to_idx[name])
 max_row = ws.max_row
 
-for row in range(2, max_row + 1):  # Format all rows, not just new ones
+for row in range(2, max_row + 1):
+    # Number formats
     ws[f'{L("Buy (g.s)")}{row}'].number_format = '0.00'
     ws[f'{L("Sell (g.s)")}{row}'].number_format = '0.00'
     ws[f'{L("Overcut (%)")}{row}'].number_format = '0%'
     ws[f'{L("Undercut (%)")}{row}'].number_format = '0%'
     ws[f'{L("Overcut (g)")}{row}'].number_format = '0.00'
     ws[f'{L("Undercut (g)")}{row}'].number_format = '0.00'
-    ws[f'{L("Qty")}{row}'].number_format = '0'
-    ws[f'{L("Theoretical Profit - WF1")}{row}'].number_format = '0.00'
-    ws[f'{L("Amount Received")}{row}'].number_format = '0.00'
-    ws[f'{L("ROI (%)")}{row}'].number_format = '0%'
-    ws[f'{L("ROI (Target %)")}{row}'].number_format = '0%'
-    ws[f'{L("Bid / Item (g)")}{row}'].number_format = '0.00'
-    ws[f'{L("Overcut (%) - WF2")}{row}'].number_format = '0%'
-    ws[f'{L("Offer / Item (g)")}{row}'].number_format = '0.00'
-    ws[f'{L("Theoretical Profit - WF2")}{row}'].number_format = '0.00'
-    ws[f'{L("Demand-Supply Gap (%)")}{row}'].number_format = '0%'
-
-    # New columns formatting
+    ws[f'{L("Max Flips / Day")}{row}'].number_format = '0'
+    ws[f'{L("Bought/Bids")}{row}'].number_format = '0.00'
+    ws[f'{L("Sold/Offers")}{row}'].number_format = '0.00'
     ws[f'{L("Buy-Through Rate (%)")}{row}'].number_format = '0%'
     ws[f'{L("Sell-Through Rate (%)")}{row}'].number_format = '0%'
-    ws[f'{L("P(Sell = Qty)")}{row}'].number_format = '0.00'
+    ws[f'{L("Flip-Through Rate (%)")}{row}'].number_format = '0%'
+    ws[f'{L("E(Profit | Qty = 1)")}{row}'].number_format = '0.00'
+    ws[f'{L("E(ROI | Qty = 1)")}{row}'].number_format = '0%'
     ws[f'{L("P(Buy = Qty)")}{row}'].number_format = '0.00'
-    ws[f'{L("P(Successful Flip)")}{row}'].number_format = '0.00'
+    ws[f'{L("P(Sell = Qty)")}{row}'].number_format = '0.00'
+    ws[f'{L("Optimal Qty")}{row}'].number_format = '0'
+    ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].number_format = '0%'
+    ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].number_format = '0.00'
+    ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].number_format = '0.00'
+    ws[f'{L("Optimal Investment (g)")}{row}'].number_format = '0.00'
+    ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].number_format = '0%'
+    ws[f'{L("Actual Qty Ordered")}{row}'].number_format = '0'
 
     for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
         ws[f'{L(int_col)}{row}'].number_format = '#,##0'
 
+    # Formulas
     ws[f'{L("Overcut (g)")}{row}'].value = f'={L("Buy (g.s)")}{row}*{L("Overcut (%)")}{row}'
     ws[f'{L("Undercut (g)")}{row}'].value = f'={L("Sell (g.s)")}{row}*{L("Undercut (%)")}{row}'
-    ws[f'{L("Theoretical Profit - WF1")}{row}'].value = f'=(({L("Undercut (g)")}{row}*0.85)-{L("Overcut (g)")}{row})*{L("Qty")}{row}'
-    ws[f'{L("Amount Received")}{row}'].value = f'={L("Undercut (g)")}{row}*{L("Qty")}{row}'
-    ws[f'{L("ROI (%)")}{row}'].value = f'={L("Theoretical Profit - WF1")}{row}/({L("Overcut (g)")}{row}*{L("Qty")}{row})'
-    ws[f'{L("Demand-Supply Gap (%)")}{row}'].value = f'=IF({L("Supply")}{row}=0,"",({L("Demand")}{row}-{L("Supply")}{row})/{L("Supply")}{row})'
-    ws[f'{L("Bid / Item (g)")}{row}'].value = f'=({L("Undercut (%)")}{row}*0.85*{L("Sell (g.s)")}{row})/({L("ROI (Target %)")}{row}+1)'
-    ws[f'{L("Overcut (%) - WF2")}{row}'].value = f'=({L("Bid / Item (g)")}{row})/({L("Buy (g.s)")}{row})'
-    ws[f'{L("Offer / Item (g)")}{row}'].value = f'={L("Undercut (%)")}{row}*{L("Sell (g.s)")}{row}'
-    ws[f'{L("Theoretical Profit - WF2")}{row}'].value = f'=(({L("Offer / Item (g)")}{row}*0.85)-{L("Bid / Item (g)")}{row})*{L("Qty")}{row}'
-
-    # New formulas for buy/sell-through rates and probabilities
-    ws[f'{L("Buy-Through Rate (%)")}{row}'].value = f'=IF({L("Bids")}{row}=0,0,{L("Bought")}{row}/{L("Bids")}{row})'
-    ws[f'{L("Sell-Through Rate (%)")}{row}'].value = f'=IF({L("Offers")}{row}=0,0,{L("Sold")}{row}/{L("Offers")}{row})'
-    ws[f'{L("P(Sell = Qty)")}{row}'].value = f'=BINOM.DIST({L("Qty")}{row},{L("Qty")}{row},MIN({L("Sell-Through Rate (%)")}{row},1),FALSE)'
-    ws[f'{L("P(Buy = Qty)")}{row}'].value = f'=BINOM.DIST({L("Qty")}{row},{L("Qty")}{row},MIN({L("Buy-Through Rate (%)")}{row},1),FALSE)'
-    ws[f'{L("P(Successful Flip)")}{row}'].value = f'={L("P(Buy = Qty)")}{row}*{L("P(Sell = Qty)")}{row}'
+    ws[f'{L("Max Flips / Day")}{row}'].value = f'=MIN({L("Bought")}{row},{L("Sold")}{row})'
+    ws[f'{L("Bought/Bids")}{row}'].value = f'=IFERROR({L("Bought")}{row}/{L("Bids")}{row},"")'
+    ws[f'{L("Sold/Offers")}{row}'].value = f'=IFERROR({L("Sold")}{row}/{L("Offers")}{row},"")'
+    ws[f'{L("Buy-Through Rate (%)")}{row}'].value = f'=IF({L("Bids")}{row}=0,IF({L("Bought")}{row}>0,1,0),MIN(1,{L("Bought")}{row}/{L("Bids")}{row}))'
+    ws[f'{L("Sell-Through Rate (%)")}{row}'].value = f'=IF({L("Offers")}{row}=0,IF({L("Sold")}{row}>0,1,0),MIN(1,{L("Sold")}{row}/{L("Offers")}{row}))'
+    ws[f'{L("Flip-Through Rate (%)")}{row}'].value = f'={L("Buy-Through Rate (%)")}{row}*{L("Sell-Through Rate (%)")}{row}'
+    ws[f'{L("E(Profit | Qty = 1)")}{row}'].value = f'={L("Undercut (g)")}{row}*0.85*{L("Sell-Through Rate (%)")}{row}-{L("Overcut (g)")}{row}'
+    ws[f'{L("E(ROI | Qty = 1)")}{row}'].value = f'=IFERROR({L("E(Profit | Qty = 1)")}{row}/{L("Overcut (g)")}{row},0)'
+    ws[f'{L("P(Buy = Qty)")}{row}'].value = f'=BINOM.DIST({L("Actual Qty Ordered")}{row},{L("Actual Qty Ordered")}{row},{L("Buy-Through Rate (%)")}{row},FALSE)'
+    ws[f'{L("P(Sell = Qty)")}{row}'].value = f'=BINOM.DIST({L("Actual Qty Ordered")}{row},{L("Actual Qty Ordered")}{row},{L("Sell-Through Rate (%)")}{row},FALSE)'
+    ws[f'{L("Optimal Qty")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Overcut (g)")}{row})-{L("Offers")}{row}),IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
+    ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].value = f'=IFERROR(IF({L("Optimal Qty")}{row}>0,MIN(1,{L("Sold")}{row}/({L("Offers")}{row}+{L("Optimal Qty")}{row})),NA()),"")'
+    ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Dynamic Sell-Through Rate (%)")}{row}'
+    ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].value = f'={L("E(Sales | Q = Optimal Q)")}{row}*{L("Undercut (g)")}{row}*0.85-{L("Overcut (g)")}{row}*{L("Optimal Qty")}{row}'
+    ws[f'{L("Optimal Investment (g)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Overcut (g)")}{row}'
+    ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].value = f'=IFERROR({L("E(Profit | Q = Optimal Q)")}{row}/{L("Optimal Investment (g)")}{row},0)'
 
 ws.auto_filter.ref = ws.dimensions
 for col_cells in ws.columns:
@@ -229,4 +224,3 @@ for col_cells in ws.columns:
 
 wb.save(OUTPUT_FILE)
 print(f"Final workbook saved to {OUTPUT_FILE} with sheet '{safe_title}'.")
-
