@@ -111,6 +111,17 @@ df = pd.DataFrame(all_rows, columns=[
     "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
     "Demand", "Supply", "Bought", "Sold", "Bids", "Offers"
 ])
+
+# Insert new columns after "Offers"
+insert_after = "Offers"
+insert_idx = df.columns.get_loc(insert_after) + 1
+new_cols = [
+    "Buy-Through Rate (%)", "Sell-Through Rate (%)",
+    "P(Sell = Qty)", "P(Buy = Qty)", "P(Successful Flip)"
+]
+for i, col in enumerate(new_cols):
+    df.insert(insert_idx + i, col, 0)
+
 df["Overcut (%)"] = OVERCUT_PCT_DEFAULT
 df["Undercut (%)"] = UNDERCUT_PCT_DEFAULT
 df["Overcut (g)"] = 0
@@ -132,6 +143,8 @@ df["Sold (manual)"] = False
 final_column_order = [
     "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
     "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
+    "Buy-Through Rate (%)", "Sell-Through Rate (%)",
+    "P(Sell = Qty)", "P(Buy = Qty)", "P(Successful Flip)",
     "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
     "Qty", "Theoretical Profit - WF1", "Amount Received", "ROI (%)",
     "Demand-Supply Gap (%)", "ROI (Target %)", "Bid / Item (g)", "Overcut (%) - WF2", "Offer / Item (g)",
@@ -177,6 +190,13 @@ for row in range(2, max_row + 1):  # Format all rows, not just new ones
     ws[f'{L("Theoretical Profit - WF2")}{row}'].number_format = '0.00'
     ws[f'{L("Demand-Supply Gap (%)")}{row}'].number_format = '0%'
 
+    # New columns formatting
+    ws[f'{L("Buy-Through Rate (%)")}{row}'].number_format = '0%'
+    ws[f'{L("Sell-Through Rate (%)")}{row}'].number_format = '0%'
+    ws[f'{L("P(Sell = Qty)")}{row}'].number_format = '0.00'
+    ws[f'{L("P(Buy = Qty)")}{row}'].number_format = '0.00'
+    ws[f'{L("P(Successful Flip)")}{row}'].number_format = '0.00'
+
     for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
         ws[f'{L(int_col)}{row}'].number_format = '#,##0'
 
@@ -190,6 +210,13 @@ for row in range(2, max_row + 1):  # Format all rows, not just new ones
     ws[f'{L("Overcut (%) - WF2")}{row}'].value = f'=({L("Bid / Item (g)")}{row})/({L("Buy (g.s)")}{row})'
     ws[f'{L("Offer / Item (g)")}{row}'].value = f'={L("Undercut (%)")}{row}*{L("Sell (g.s)")}{row}'
     ws[f'{L("Theoretical Profit - WF2")}{row}'].value = f'=(({L("Offer / Item (g)")}{row}*0.85)-{L("Bid / Item (g)")}{row})*{L("Qty")}{row}'
+
+    # New formulas for buy/sell-through rates and probabilities
+    ws[f'{L("Buy-Through Rate (%)")}{row}'].value = f'=IF({L("Bids")}{row}=0,0,{L("Bought")}{row}/{L("Bids")}{row})'
+    ws[f'{L("Sell-Through Rate (%)")}{row}'].value = f'=IF({L("Offers")}{row}=0,0,{L("Sold")}{row}/{L("Offers")}{row})'
+    ws[f'{L("P(Sell = Qty)")}{row}'].value = f'=BINOM.DIST({L("Qty")}{row},{L("Qty")}{row},MIN({L("Sell-Through Rate (%)")}{row},1),FALSE)'
+    ws[f'{L("P(Buy = Qty)")}{row}'].value = f'=BINOM.DIST({L("Qty")}{row},{L("Qty")}{row},MIN({L("Buy-Through Rate (%)")}{row},1),FALSE)'
+    ws[f'{L("P(Successful Flip)")}{row}'].value = f'={L("P(Buy = Qty)")}{row}*{L("P(Sell = Qty)")}{row}'
 
 ws.auto_filter.ref = ws.dimensions
 for col_cells in ws.columns:
