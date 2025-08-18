@@ -23,7 +23,7 @@ PARAMS = {
 }
 
 OVERCUT_PCT_DEFAULT = 1.10
-UNDERCUT_PCT_DEFAULT = 0.90
+UNDERCUT_PCT_DEFAULT = 0.95
 ROI_TARGET_DEFAULT = 0.10
 QTY_DEFAULT = 1
 OUTPUT_FILE = "scraper-results.xlsx"
@@ -99,7 +99,7 @@ if not all_rows:
 # LOAD EXISTING FILE
 # --------------------
 if os.path.exists(OUTPUT_FILE):
-    existing_df = pd.read_excel(OUTPUT_FILE)
+    existing_df = pd.read_excel(OUTPUT_FILE, sheet_name='scraper-results')
     existing_df = existing_df[existing_df["Buy Order Placed"] == True]  # Keep only placed orders
 else:
     existing_df = pd.DataFrame()
@@ -122,7 +122,8 @@ final_column_order = [
     "E(Profit | Qty = 1)", "E(ROI | Qty = 1)", "P(Buy = Qty)", "P(Sell = Qty)",
     "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
     "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)",
-    "Actual Qty Ordered", "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
+    "Time to Sell (Q Optimal)","Actual Qty Ordered", 
+    "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
 
 # Add new columns to DataFrame
@@ -142,13 +143,13 @@ df["Sold (manual)"] = False
 # Set default for Actual Qty Ordered
 df["Actual Qty Ordered"] = QTY_DEFAULT
 
-# Reorder columns
-df = df[final_column_order]
-
 # --------------------
 # COMBINE & SAVE
 # --------------------
+existing_df = existing_df[final_column_order] if not existing_df.empty else pd.DataFrame(columns=final_column_order)
+df = df[final_column_order]  # Reorder columns
 combined_df = pd.concat([existing_df, df], ignore_index=True)
+combined_df = combined_df[final_column_order] # re-order column
 combined_df.to_excel(OUTPUT_FILE, index=False)
 
 # --------------------
@@ -188,6 +189,7 @@ for row in range(2, max_row + 1):
     ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].number_format = '0.00'
     ws[f'{L("Optimal Investment (g)")}{row}'].number_format = '0.00'
     ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].number_format = '0%'
+    ws[f'{L("Time to Sell (Q Optimal)")}{row}'].number_format = '0.00'
     ws[f'{L("Actual Qty Ordered")}{row}'].number_format = '0'
 
     for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
@@ -212,6 +214,7 @@ for row in range(2, max_row + 1):
     ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].value = f'={L("E(Sales | Q = Optimal Q)")}{row}*{L("Undercut (g)")}{row}*0.85-{L("Overcut (g)")}{row}*{L("Optimal Qty")}{row}'
     ws[f'{L("Optimal Investment (g)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Overcut (g)")}{row}'
     ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].value = f'=IFERROR({L("E(Profit | Q = Optimal Q)")}{row}/{L("Optimal Investment (g)")}{row},0)'
+    ws[f'{L("Time to Sell (Q Optimal)")}{row}'].value = f'=({L("Offers")}{row} + {L("Optimal Qty")}{row})/{L("Sold")}{row}'
 
 ws.auto_filter.ref = ws.dimensions
 for col_cells in ws.columns:
@@ -220,7 +223,8 @@ for col_cells in ws.columns:
     for cell in col_cells:
         if cell.value is not None:
             max_length = max(max_length, len(str(cell.value)))
-    ws.column_dimensions[col_letter].width = max(8, max_length + 2)
+    # ws.column_dimensions[col_letter].width = max(8, max_length + 2)
+    ws.column_dimensions[col_letter].width = max_length
 
 wb.save(OUTPUT_FILE)
 print(f"Final workbook saved to {OUTPUT_FILE} with sheet '{safe_title}'.")
