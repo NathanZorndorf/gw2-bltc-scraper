@@ -122,7 +122,8 @@ final_column_order = [
     "E(Profit | Qty = 1)", "E(ROI | Qty = 1)", "P(Buy = Qty)", "P(Sell = Qty)",
     "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
     "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)",
-    "Time to Sell (Q Optimal)","Actual Qty Ordered", 
+    "Target ROI", "Optimal Qty | Target ROI", "Optimal Buy Price | Target ROI",
+    "Time to Sell (Q Optimal)","Actual Qty Ordered",
     "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
 
@@ -134,6 +135,7 @@ for col in final_column_order:
 # Set default values for overcut/undercut columns using constants
 df["Overcut (%)"] = OVERCUT_PCT_DEFAULT
 df["Undercut (%)"] = UNDERCUT_PCT_DEFAULT
+df["Target ROI"] = ROI_TARGET_DEFAULT
 
 # Set default values for boolean columns
 df["Buy Order Placed"] = False
@@ -192,6 +194,11 @@ for row in range(2, max_row + 1):
     ws[f'{L("Time to Sell (Q Optimal)")}{row}'].number_format = '0.00'
     ws[f'{L("Actual Qty Ordered")}{row}'].number_format = '0'
 
+    # Formatting for new columns
+    ws[f'{L("Target ROI")}{row}'].number_format = '0%'
+    ws[f'{L("Optimal Qty | Target ROI")}{row}'].number_format = '0'
+    ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].number_format = '0.00'
+
     for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
         ws[f'{L(int_col)}{row}'].number_format = '#,##0'
 
@@ -215,6 +222,11 @@ for row in range(2, max_row + 1):
     ws[f'{L("Optimal Investment (g)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Overcut (g)")}{row}'
     ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].value = f'=IFERROR({L("E(Profit | Q = Optimal Q)")}{row}/{L("Optimal Investment (g)")}{row},0)'
     ws[f'{L("Time to Sell (Q Optimal)")}{row}'].value = f'=({L("Offers")}{row} + {L("Optimal Qty")}{row})/{L("Sold")}{row}'
+
+    # New formulas for Target ROI
+    ws[f'{L("Target ROI")}{row}'].value = f'={ROI_TARGET_DEFAULT}'
+    ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0)'
+    ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=IF({L("Optimal Buy Price | Target ROI")}{row}=0, 0, LET(q,ROUND(SQRT({L("Sold")}{row)}*{L("Offers")}{row)}*{L("Undercut (g)")}{row)}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row)}))))'
 
 ws.auto_filter.ref = ws.dimensions
 for col_cells in ws.columns:
