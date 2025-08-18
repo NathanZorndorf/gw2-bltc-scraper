@@ -26,7 +26,8 @@ OVERCUT_PCT_DEFAULT = 1.10
 UNDERCUT_PCT_DEFAULT = 0.95
 ROI_TARGET_DEFAULT = 0.10
 QTY_DEFAULT = 1
-OUTPUT_FILE = "scraper-results.xlsx"
+INPUT_FILE = "scraper-results.xlsx"
+OUTPUT_FILE = "scraper-results-new.xlsx"
 
 # Timestamp
 scrape_time_dt = datetime.now()
@@ -98,8 +99,8 @@ if not all_rows:
 # --------------------
 # LOAD EXISTING FILE
 # --------------------
-if os.path.exists(OUTPUT_FILE):
-    existing_df = pd.read_excel(OUTPUT_FILE, sheet_name='scraper-results')
+if os.path.exists(INPUT_FILE):
+    existing_df = pd.read_excel(INPUT_FILE, sheet_name='scraper-results')
     existing_df = existing_df[existing_df["Buy Order Placed"] == True]  # Keep only placed orders
 else:
     existing_df = pd.DataFrame()
@@ -121,9 +122,9 @@ final_column_order = [
     "Buy-Through Rate (%)", "Sell-Through Rate (%)", "Flip-Through Rate (%)",
     "E(Profit | Qty = 1)", "E(ROI | Qty = 1)", "P(Buy = Qty)", "P(Sell = Qty)",
     "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
-    "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)",
-    "Target ROI", "Optimal Qty | Target ROI", "Optimal Buy Price | Target ROI",
-    "Time to Sell (Q Optimal)","Actual Qty Ordered",
+    "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)", "Time to Sell (Q Optimal)",
+    "Target ROI", "Optimal Buy Price | Target ROI", "Optimal Qty | Target ROI",
+    "Actual Qty Ordered", "Actual Buy Price",
     "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
 
@@ -148,10 +149,19 @@ df["Actual Qty Ordered"] = QTY_DEFAULT
 # --------------------
 # COMBINE & SAVE
 # --------------------
-existing_df = existing_df[final_column_order] if not existing_df.empty else pd.DataFrame(columns=final_column_order)
-df = df[final_column_order]  # Reorder columns
+# Ensure all columns exist in both DataFrames
+for col in final_column_order:
+    if col not in existing_df.columns:
+        existing_df[col] = ""
+    if col not in df.columns:
+        df[col] = ""
+
+# Reorder columns
+existing_df = existing_df[final_column_order]
+df = df[final_column_order]
+
 combined_df = pd.concat([existing_df, df], ignore_index=True)
-combined_df = combined_df[final_column_order] # re-order column
+combined_df = combined_df[final_column_order]  # Final re-order
 combined_df.to_excel(OUTPUT_FILE, index=False)
 
 # --------------------
@@ -159,8 +169,7 @@ combined_df.to_excel(OUTPUT_FILE, index=False)
 # --------------------
 wb = load_workbook(OUTPUT_FILE)
 ws = wb.active
-safe_title = scrape_time_str.replace(":", "-")
-ws.title = safe_title
+ws.title = "scraper-results"  # Use a fixed title for consistency
 ws.freeze_panes = 'B2'
 
 header_to_idx = {str(cell.value).strip(): idx for idx, cell in enumerate(ws[1], start=1)}
@@ -193,6 +202,7 @@ for row in range(2, max_row + 1):
     ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].number_format = '0%'
     ws[f'{L("Time to Sell (Q Optimal)")}{row}'].number_format = '0.00'
     ws[f'{L("Actual Qty Ordered")}{row}'].number_format = '0'
+    ws[f'{L("Actual Buy Price")}{row}'].number_format = '0.00'
 
     # Formatting for new columns
     ws[f'{L("Target ROI")}{row}'].number_format = '0%'
@@ -226,7 +236,7 @@ for row in range(2, max_row + 1):
     # New formulas for Target ROI
     ws[f'{L("Target ROI")}{row}'].value = f'={ROI_TARGET_DEFAULT}'
     ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0)'
-    ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=IF({L("Optimal Buy Price | Target ROI")}{row}=0, 0, LET(q,ROUND(SQRT({L("Sold")}{row)}*{L("Offers")}{row)}*{L("Undercut (g)")}{row)}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row)}))))'
+    ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
 
 ws.auto_filter.ref = ws.dimensions
 for col_cells in ws.columns:
@@ -239,4 +249,4 @@ for col_cells in ws.columns:
     ws.column_dimensions[col_letter].width = max_length
 
 wb.save(OUTPUT_FILE)
-print(f"Final workbook saved to {OUTPUT_FILE} with sheet '{safe_title}'.")
+print(f"Final workbook saved to {OUTPUT_FILE}.")
