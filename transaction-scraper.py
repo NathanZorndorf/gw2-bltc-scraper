@@ -29,14 +29,6 @@ def fetch_all_transactions(endpoint, api_key):
     while True:
         url = f"{endpoint}?page={page}&page_size={page_size}"
         r = requests.get(url, headers=headers, timeout=20)
-        # Print the URL
-        print(f"URL: {r.request.url}")
-
-        # Print the headers
-        print("Headers:")
-        for header, value in r.request.headers.items():
-            print(f"  {header}: {value}")
-
         if r.status_code != 200:
             break
         batch = r.json()
@@ -123,7 +115,7 @@ def aggregate_transactions(buys, sells):
         iid = tx["item_id"]
         price = parse_coins_to_gold_silver(tx["price"])
         qty = tx["quantity"]
-        received = price * qty * 0.85
+        received = price * qty
         if iid not in agg:
             continue  # Only include items with buys
         agg[iid]["sold_qty"] += qty

@@ -23,7 +23,7 @@ PARAMS = {
 }
 
 OVERCUT_PCT_DEFAULT = 1.10
-UNDERCUT_PCT_DEFAULT = 0.95
+UNDERCUT_PCT_DEFAULT = 0.90
 ROI_TARGET_DEFAULT = 0.10
 QTY_DEFAULT = 1
 INPUT_FILE = "scraper-results.xlsx"
@@ -124,7 +124,7 @@ final_column_order = [
     "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
     "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)", "Time to Sell (Q Optimal)",
     "Target ROI", "Optimal Buy Price | Target ROI", "Optimal Qty | Target ROI",
-    "Actual Qty Ordered", "Actual Buy Price",
+    "Actual Qty Ordered", "Actual Buy Price", "Actual Sell Price",
     "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
 ]
 
@@ -144,7 +144,9 @@ df["Sell Order Placed"] = False
 df["Sold (manual)"] = False
 
 # Set default for Actual Qty Ordered
-df["Actual Qty Ordered"] = QTY_DEFAULT
+df["Actual Qty Ordered"] = ''
+df["Actual Buy Price"] = ''
+df["Actual Sell Price"] = ''
 
 # --------------------
 # COMBINE & SAVE
@@ -171,6 +173,7 @@ wb = load_workbook(OUTPUT_FILE)
 ws = wb.active
 ws.title = "scraper-results"  # Use a fixed title for consistency
 ws.freeze_panes = 'B2'
+
 
 header_to_idx = {str(cell.value).strip(): idx for idx, cell in enumerate(ws[1], start=1)}
 def L(name): return get_column_letter(header_to_idx[name])
