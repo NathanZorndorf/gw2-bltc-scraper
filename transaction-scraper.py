@@ -29,6 +29,14 @@ def fetch_all_transactions(endpoint, api_key):
     while True:
         url = f"{endpoint}?page={page}&page_size={page_size}"
         r = requests.get(url, headers=headers, timeout=20)
+        # Print the URL
+        print(f"URL: {r.request.url}")
+
+        # Print the headers
+        print("Headers:")
+        for header, value in r.request.headers.items():
+            print(f"  {header}: {value}")
+
         if r.status_code != 200:
             break
         batch = r.json()
@@ -71,8 +79,8 @@ def get_item_names(item_ids):
             names[iid] = f"Item {iid}"
     return names
 
-def filter_last_7_days(transactions, date_field="purchased"):
-    cutoff = datetime.now() - timedelta(days=7)
+def filter_last_n_days(transactions, date_field="purchased", n=30):
+    cutoff = datetime.now() - timedelta(days=n)
     filtered = []
     skipped = 0
     for tx in transactions:
@@ -115,7 +123,7 @@ def aggregate_transactions(buys, sells):
         iid = tx["item_id"]
         price = parse_coins_to_gold_silver(tx["price"])
         qty = tx["quantity"]
-        received = price * qty
+        received = price * qty * 0.85
         if iid not in agg:
             continue  # Only include items with buys
         agg[iid]["sold_qty"] += qty
@@ -227,8 +235,8 @@ if __name__ == "__main__":
     else:
         print("Fetching transaction history from API...")
         buys, sells = fetch_transactions(api_key)
-        buys = filter_last_7_days(buys, date_field="purchased")
-        sells = filter_last_7_days(sells, date_field="purchased")
+        buys = filter_last_n_days(buys, date_field="purchased", n=30)
+        sells = filter_last_n_days(sells, date_field="purchased", n=30)
         all_ids = [tx["item_id"] for tx in buys + sells]
         item_names = get_item_names(all_ids)
         agg = aggregate_transactions(buys, sells)
