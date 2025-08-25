@@ -41,7 +41,37 @@ if not all_item_ids:
     exit()
 
 # --------------------
-# STEP 2: Fetch item names in batches from the Guild Wars 2 API
+# STEP 2: Filter item IDs based on price and quantity
+# --------------------
+def filter_item_ids(item_ids):
+    """Filters item IDs based on buy/sell price and quantity."""
+    filtered_ids = []
+    print("Fetching prices for filtering...")
+    for i in range(0, len(item_ids), 200):
+        batch_ids = item_ids[i:i+200]
+        print(f"Processing batch {i//200 + 1}/{len(item_ids)//200 + 1}")
+        try:
+            response = requests.get(f"{GW2_API_BASE_URL}/commerce/prices?ids={','.join(map(str, batch_ids))}")
+            response.raise_for_status()
+            for item in response.json():
+                buy_price = item['buys']['unit_price']
+                buy_quantity = item['buys']['quantity']
+                sell_price = item['sells']['unit_price']
+                sell_quantity = item['sells']['quantity']
+
+                if (buy_price > 500 and buy_quantity > 10) and \
+                   (sell_price > 500 and sell_quantity > 10):
+                    filtered_ids.append(item['id'])
+        except requests.exceptions.RequestException as e:
+            print(f"Error fetching prices for batch {i//200}: {e}")
+    return filtered_ids
+
+print("Filtering item IDs...")
+all_item_ids = filter_item_ids(all_item_ids)
+print(f"Found {len(all_item_ids)} items after filtering.")
+
+# --------------------
+# STEP 3: Fetch item names in batches from the Guild Wars 2 API
 # --------------------
 def get_item_details(item_ids):
     """Fetches item details in batches of 200."""
