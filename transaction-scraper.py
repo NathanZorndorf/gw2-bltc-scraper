@@ -131,12 +131,10 @@ def save_profit_report(agg, item_names, output_file):
         received = data["received"]
         roi = received - spent
         roi_pct = roi / spent if spent else ""
-        sum_qty = data["bought_qty"] + data["sold_qty"]
         rows.append({
             "Item Name": name,
             "Bought Qty": data["bought_qty"],
             "Sold Qty": data["sold_qty"],
-            "Sum Qty": sum_qty,
             "Total Spent (g.s)": spent,
             "Total Received (g.s)": received,
             "ROI (g.s)": roi,

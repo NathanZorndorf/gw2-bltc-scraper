@@ -1,16 +1,27 @@
+
 import os
 import requests
 from bs4 import BeautifulSoup
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import pandas as pd
+import numpy as np
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
 import json
+import time
+from tzlocal import get_localzone
+import argparse
+
 
 # --------------------
-# CONFIG
+# CONFIG & ARGUMENTS
 # --------------------
+parser = argparse.ArgumentParser(description="GW2 BLTC Scraper")
+parser.add_argument('--historical', action='store_true', help='Query DataWars2 API for historical data')
+args = parser.parse_args()
+
 BASE_URL = "https://www.gw2bltc.com/en/tp/search"
+DATAWARS_API_URL = "https://api.datawars2.ie/gw2/v2/history/hourly/json"
 PARAMS = {
     "profit-min": 500,
     "profit-pct-min": 10,
@@ -33,6 +44,13 @@ OUTPUT_FILE = "scraper-results-new.xlsx"
 scrape_time_dt = datetime.now()
 scrape_time_str = scrape_time_dt.strftime("%Y-%m-%d %H:%M")
 
+# get timezone
+local_tz = get_localzone()
+print(f"\nYour local timezone is: {local_tz}")
+
+import time
+from datetime import timezone
+
 # --------------------
 # HELPERS
 # --------------------
@@ -52,6 +70,103 @@ def parse_int(td):
         return int(txt)
     except ValueError:
         return 0
+    
+def get_datawars_data(item_ids):
+    """Fetches and processes data from the DataWars2 API for multiple item IDs with retry logic."""
+    end_date = datetime.now(timezone.utc)
+    start_date = end_date - timedelta(days=7)
+    params = {
+        "itemID": ",".join(item_ids),
+        "start": start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
+        "end": end_date.strftime('%Y-%m-%dT%H:%M:%SZ')
+    }
+
+    retries = 3
+    backoff_factor = 0.5
+    for i in range(retries):
+        try:
+            print(DATAWARS_API_URL, params)
+            r = requests.get(DATAWARS_API_URL, params=params, timeout=5)
+            r.raise_for_status()
+            data = r.json()
+            if not data:
+                return {}
+
+            results = {}
+            for item_id in item_ids:
+                item_data = [d for d in data if str(d['itemID']) == item_id]
+                print(len(item_data), "records for item", item_id)
+                if not item_data:
+                    results[item_id] = None
+                    continue
+
+                df = pd.DataFrame(item_data)
+                required_cols = ['buy_price_max', 'sell_price_min', 'buy_listed', 'buy_sold', 'sell_listed', 'sell_sold', 'buy_quantity', 'sell_quantity']
+                for col in required_cols:
+                    if col not in df.columns:
+                        df[col] = 0
+
+                for col in required_cols:
+                    df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
+
+                if df.empty or df['buy_price_max'].sum() == 0 or df['sell_price_min'].sum() == 0:
+                    results[item_id] = None
+                    continue
+
+                # set timezone
+                df['date'] = pd.to_datetime(df['date'])
+                df['date'] = df['date'].dt.tz_convert(local_tz)
+
+                # resample for daily calcs
+                
+                df_daily = df.resample('D', on='date').agg('sum')
+                # df_daily = df_daily.iloc[1:-1] # remove non-full days TODO: make this better so I don't delete a bunch of useful data
+                df_daily_avg = df_daily.median().astype(int)
+
+                bids = df_daily_avg['buy_listed']
+                bought = df_daily_avg['buy_sold']
+                offers = df_daily_avg['sell_listed']
+                sold = df_daily_avg['sell_sold']
+                buy_delisted = df_daily_avg['buy_delisted']
+                sell_delisted = df_daily_avg['sell_delisted']
+
+                buy_price = df['buy_price_max'].iloc[-1] / 10000 if not df.empty else 0
+                sell_price = df['sell_price_min'].iloc[-1] / 10000 if not df.empty else 0
+
+                demand = df['buy_quantity_avg'].mean().astype(int)
+                supply = df['sell_quantity_avg'].mean().astype(int)
+
+                avg_buy_price = np.median(df[df['buy_price_max'] > 0]['buy_price_max']) / 10000 if not df[df['buy_price_max'] > 0].empty else 0
+                avg_sell_price = np.median(df[df['sell_price_min'] > 0]['sell_price_min']) / 10000 if not df[df['sell_price_min'] > 0].empty else 0
+                std_dev_buy_price = np.std(df[df['buy_price_max'] > 0]['buy_price_max']) / 10000 if not df[df['buy_price_max'] > 0].empty else 0
+                std_dev_sell_price = np.std(df[df['sell_price_min'] > 0]['sell_price_min']) / 10000 if not df[df['sell_price_min'] > 0].empty else 0
+
+                results[item_id] = {
+                    "Buy Price (Inst.)": buy_price,
+                    "Sell Price (Inst.)": sell_price,
+                    "Demand": demand,
+                    "Supply": supply,
+                    "Bought": bought,
+                    "Sold": sold,
+                    "Bids": bids,
+                    "Offers": offers,
+                    "Bids Delisted": buy_delisted,
+                    "Offers Delisted": sell_delisted,
+                    "Avg Buy Price (7d)": avg_buy_price,
+                    "Avg Sell Price (7d)": avg_sell_price,
+                    "Std Dev Buy Price (7d)": std_dev_buy_price,
+                    "Std Dev Sell Price (7d)": std_dev_sell_price,
+                }
+            return results
+        except requests.exceptions.RequestException as e:
+            print(f"Failed to get data for items {item_ids}: {e}. Retrying ({i+1}/{retries})...")
+            time.sleep(backoff_factor * (2 ** i))
+        except (ValueError, KeyError) as e:
+            print(f"Failed to parse data for items {item_ids}: {e}")
+            return {}
+
+    print(f"Failed to get data for items {item_ids} after {retries} retries.")
+    return {}
 
 # --------------------
 # SCRAPE UNTIL EMPTY
@@ -71,6 +186,9 @@ while True:
     if not rows:
         break
 
+    # Collect item info for the page
+    page_items = []
+    page_item_ids = []
     for row in rows:
         cols = row.find_all("td")
         if len(cols) < 12:
@@ -78,6 +196,9 @@ while True:
         item_name = cols[1].get_text(strip=True)
         link_tag = cols[1].find("a", href=True)
         item_link = f"https://www.gw2bltc.com{link_tag['href']}" if link_tag else ""
+        if not item_link:
+            continue
+
         sell = parse_gold_silver(cols[2])
         buy = parse_gold_silver(cols[3])
         demand = parse_int(cols[7])
@@ -86,10 +207,54 @@ while True:
         sold = parse_int(cols[8])
         bids = parse_int(cols[11])
         offers = parse_int(cols[9])
-        all_rows.append([
-            item_name, item_link, scrape_time_str, buy, sell,
-            demand, supply, bought, sold, bids, offers
-        ])
+
+
+        item_id = item_link.split('/')[-1].split('-')[0]
+        item_data = {
+            "item_id": item_id,
+            "item_name": item_name,
+            "item_link": item_link,
+            "Buy Price (Inst.)": buy,
+            "Sell Price (Inst.)": sell,
+            "Demand": demand,
+            "Supply": supply,
+            "Bought": bought,
+            "Sold": sold,
+            "Bids": bids,
+            "Offers": offers
+        }
+        page_items.append(item_data)
+        page_item_ids.append(item_id)
+
+
+    # Batch request for all item IDs on this page, 5 at a time
+    for i in range(0, len(page_item_ids), 5):
+        batch_ids = page_item_ids[i:i+5]
+        batch_items = page_items[i:i+5]
+        if args.historical:
+            api_data_dict = get_datawars_data(batch_ids)
+        else:
+            api_data_dict = {item["item_id"]: None for item in batch_items}
+        for item_data in batch_items:
+            api_data = api_data_dict.get(item_data["item_id"])
+            if api_data:
+                avg_buy = api_data["Avg Buy Price (7d)"]
+                avg_sell = api_data["Avg Sell Price (7d)"]
+                std_buy = api_data["Std Dev Buy Price (7d)"]
+                std_sell = api_data["Std Dev Sell Price (7d)"]
+            else:
+                avg_buy = ''
+                avg_sell = ''
+                std_buy = ''
+                std_sell = ''
+            all_rows.append([
+                item_data["item_name"], item_data["item_link"], scrape_time_str,
+                item_data["Buy Price (Inst.)"], item_data["Sell Price (Inst.)"],
+                item_data['Demand'], item_data['Supply'], 
+                item_data['Bought'], item_data['Sold'],
+                item_data['Bids'], item_data['Offers'],
+                avg_buy, avg_sell, std_buy, std_sell
+            ])
     PARAMS["page"] += 1
 
 if not all_rows:
@@ -109,14 +274,16 @@ else:
 # CREATE NEW DATAFRAME
 # --------------------
 df = pd.DataFrame(all_rows, columns=[
-    "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
-    "Demand", "Supply", "Bought", "Sold", "Bids", "Offers"
+    "Item Name", "Item Link", "Date of Scrape", "Buy Price (Inst.)", "Sell Price (Inst.)",
+    "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
+    "Avg Buy Price (7d)", "Avg Sell Price (7d)", "Std Dev Buy Price (7d)", "Std Dev Sell Price (7d)"
 ])
 
 # Update columns to match scraper-formulas.csv
 final_column_order = [
-    "Item Name", "Item Link", "Date of Scrape", "Buy (g.s)", "Sell (g.s)",
+    "Item Name", "Item Link", "Date of Scrape", "Buy Price (Inst.)", "Sell Price (Inst.)",
     "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
+    "Avg Buy Price (7d)", "Avg Sell Price (7d)", "Std Dev Buy Price (7d)", "Std Dev Sell Price (7d)",
     "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
     "Max Flips / Day", "Bought/Bids", "Sold/Offers",
     "Buy-Through Rate (%)", "Sell-Through Rate (%)", "Flip-Through Rate (%)",
@@ -181,8 +348,12 @@ max_row = ws.max_row
 
 for row in range(2, max_row + 1):
     # Number formats
-    ws[f'{L("Buy (g.s)")}{row}'].number_format = '0.00'
-    ws[f'{L("Sell (g.s)")}{row}'].number_format = '0.00'
+    ws[f'{L("Buy Price (Inst.)")}{row}'].number_format = '0.00'
+    ws[f'{L("Sell Price (Inst.)")}{row}'].number_format = '0.00'
+    ws[f'{L("Avg Buy Price (7d)")}{row}'].number_format = '0.00'
+    ws[f'{L("Avg Sell Price (7d)")}{row}'].number_format = '0.00'
+    ws[f'{L("Std Dev Buy Price (7d)")}{row}'].number_format = '0.0000'
+    ws[f'{L("Std Dev Sell Price (7d)")}{row}'].number_format = '0.0000'
     ws[f'{L("Overcut (%)")}{row}'].number_format = '0%'
     ws[f'{L("Undercut (%)")}{row}'].number_format = '0%'
     ws[f'{L("Overcut (g)")}{row}'].number_format = '0.00'
@@ -216,8 +387,8 @@ for row in range(2, max_row + 1):
         ws[f'{L(int_col)}{row}'].number_format = '#,##0'
 
     # Formulas
-    ws[f'{L("Overcut (g)")}{row}'].value = f'={L("Buy (g.s)")}{row}*{L("Overcut (%)")}{row}'
-    ws[f'{L("Undercut (g)")}{row}'].value = f'={L("Sell (g.s)")}{row}*{L("Undercut (%)")}{row}'
+    ws[f'{L("Overcut (g)")}{row}'].value = f'={L("Buy Price (Inst.)")}{row}*{L("Overcut (%)")}{row}'
+    ws[f'{L("Undercut (g)")}{row}'].value = f'={L("Sell Price (Inst.)")}{row}*{L("Undercut (%)")}{row}'
     ws[f'{L("Max Flips / Day")}{row}'].value = f'=MIN({L("Bought")}{row},{L("Sold")}{row})'
     ws[f'{L("Bought/Bids")}{row}'].value = f'=IFERROR({L("Bought")}{row}/{L("Bids")}{row},"")'
     ws[f'{L("Sold/Offers")}{row}'].value = f'=IFERROR({L("Sold")}{row}/{L("Offers")}{row},"")'
