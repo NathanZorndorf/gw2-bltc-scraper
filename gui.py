@@ -3,6 +3,7 @@ from tkinter import filedialog
 import os
 import json
 import threading
+import webbrowser
 from scraper import run_scraper
 from transaction_scraper import run_transaction_scraper
 
@@ -25,40 +26,52 @@ class App(ctk.CTk):
         # Scraper Frame
         self.scraper_frame = ctk.CTkFrame(self)
         self.scraper_frame.grid(row=0, column=0, padx=10, pady=10, sticky="ew")
-        self.scraper_frame.grid_columnconfigure(1, weight=1)
+        self.scraper_frame.grid_columnconfigure(0, weight=1) # Center content
         self.scraper_label = ctk.CTkLabel(self.scraper_frame, text="Item Flip Scraper", font=ctk.CTkFont(size=16, weight="bold"))
-        self.scraper_label.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-        self.historical_check = ctk.CTkCheckBox(self.scraper_frame, text="Fetch Historical Data (slower)")
-        self.historical_check.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+        self.scraper_label.grid(row=0, column=0, padx=10, pady=10)
 
-        self.days_label = ctk.CTkLabel(self.scraper_frame, text="Days of history:")
-        self.days_label.grid(row=1, column=1, padx=(10,0), pady=5, sticky="w")
-        self.days_entry = ctk.CTkEntry(self.scraper_frame, width=50)
-        self.days_entry.grid(row=1, column=1, padx=(90,10), pady=5, sticky="w")
+        # Arguments Frame for Scraper
+        self.scraper_args_frame = ctk.CTkFrame(self.scraper_frame)
+        self.scraper_args_frame.grid(row=1, column=0, pady=5)
+        self.historical_check = ctk.CTkCheckBox(self.scraper_args_frame, text="Fetch Historical Data (slower)")
+        self.historical_check.grid(row=0, column=0, padx=10, pady=5)
+        self.days_label = ctk.CTkLabel(self.scraper_args_frame, text="Days of history:")
+        self.days_label.grid(row=0, column=1, padx=10, pady=5)
+        self.days_entry = ctk.CTkEntry(self.scraper_args_frame, width=50)
+        self.days_entry.grid(row=0, column=2, padx=10, pady=5)
         self.days_entry.insert(0, "7")
-
-        self.pages_label = ctk.CTkLabel(self.scraper_frame, text="Pages to scrape (0 for all):")
-        self.pages_label.grid(row=1, column=1, padx=(150,0), pady=5, sticky="w")
-        self.pages_entry = ctk.CTkEntry(self.scraper_frame, width=50)
-        self.pages_entry.grid(row=1, column=1, padx=(300,10), pady=5, sticky="w")
+        self.pages_label = ctk.CTkLabel(self.scraper_args_frame, text="Pages to scrape (0 for all):")
+        self.pages_label.grid(row=0, column=3, padx=10, pady=5)
+        self.pages_entry = ctk.CTkEntry(self.scraper_args_frame, width=50)
+        self.pages_entry.grid(row=0, column=4, padx=10, pady=5)
         self.pages_entry.insert(0, "0")
 
         self.run_scraper_button = ctk.CTkButton(self.scraper_frame, text="Run Scraper", command=self.start_scraper_thread)
-        self.run_scraper_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
+        self.run_scraper_button.grid(row=2, column=0, padx=10, pady=10)
 
         # Transaction Scraper Frame
         self.transaction_frame = ctk.CTkFrame(self)
         self.transaction_frame.grid(row=1, column=0, padx=10, pady=10, sticky="ew")
-        self.transaction_frame.grid_columnconfigure(1, weight=1)
+        self.transaction_frame.grid_columnconfigure(0, weight=1) # Center content
         self.transaction_label = ctk.CTkLabel(self.transaction_frame, text="Profit & Loss Report", font=ctk.CTkFont(size=16, weight="bold"))
-        self.transaction_label.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-        self.api_key_label = ctk.CTkLabel(self.transaction_frame, text="GW2 API Key:")
-        self.api_key_label.grid(row=1, column=0, padx=10, pady=5, sticky="w")
-        self.api_key_entry = ctk.CTkEntry(self.transaction_frame, placeholder_text="Enter your API key here", width=350)
-        self.api_key_entry.grid(row=1, column=1, padx=10, pady=5, sticky="ew")
+        self.transaction_label.grid(row=0, column=0, padx=10, pady=10)
+
+        # Arguments Frame for Transaction Scraper
+        self.transaction_args_frame = ctk.CTkFrame(self.transaction_frame)
+        self.transaction_args_frame.grid(row=1, column=0, pady=5)
+        self.api_key_label = ctk.CTkLabel(self.transaction_args_frame, text="GW2 API Key:")
+        self.api_key_label.grid(row=0, column=0, padx=10, pady=5)
+        self.api_key_entry = ctk.CTkEntry(self.transaction_args_frame, placeholder_text="Enter your API key here", width=350)
+        self.api_key_entry.grid(row=0, column=1, padx=10, pady=5)
         self.api_key_entry.insert(0, self.api_key)
+        self.trans_days_label = ctk.CTkLabel(self.transaction_args_frame, text="Days of history:")
+        self.trans_days_label.grid(row=1, column=0, padx=10, pady=5)
+        self.trans_days_entry = ctk.CTkEntry(self.transaction_args_frame, width=50)
+        self.trans_days_entry.grid(row=1, column=1, padx=10, pady=5, sticky="w")
+        self.trans_days_entry.insert(0, "30")
+
         self.run_transaction_button = ctk.CTkButton(self.transaction_frame, text="Run Profit Report", command=self.start_transaction_thread)
-        self.run_transaction_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
+        self.run_transaction_button.grid(row=2, column=0, padx=10, pady=10)
 
         # Settings Frame
         self.settings_frame = ctk.CTkFrame(self)
@@ -144,7 +157,7 @@ class App(ctk.CTk):
         thread = threading.Thread(target=run_scraper, args=(historical, self.output_dir, days, pages, self.safe_log))
         thread.daemon = True
         thread.start()
-        self.monitor_thread(thread)
+        self.monitor_thread(thread, task_type="scraper", output_dir=self.output_dir)
 
     def start_transaction_thread(self):
         self.set_buttons_state("disabled")
@@ -154,17 +167,41 @@ class App(ctk.CTk):
             self.log("Error: API Key is required.")
             self.set_buttons_state("normal")
             return
-        thread = threading.Thread(target=run_transaction_scraper, args=(api_key, self.output_dir, self.safe_log))
+
+        days = 30
+        try:
+            days = int(self.trans_days_entry.get())
+        except ValueError:
+            self.log("Invalid input for days. Using default of 30.")
+            days = 30
+
+        thread = threading.Thread(target=run_transaction_scraper, args=(api_key, self.output_dir, self.safe_log, days))
         thread.daemon = True
         thread.start()
-        self.monitor_thread(thread)
+        self.monitor_thread(thread, task_type="transaction_scraper", output_dir=self.output_dir)
 
-    def monitor_thread(self, thread):
+    def show_dashboard(self, output_dir):
+        report_path = os.path.join(output_dir, "interactive_report.html")
+        if not os.path.exists(report_path):
+            self.log(f"Error: Could not find report file at {report_path}")
+            return
+
+        try:
+            # Create a file:// URL
+            report_url = f"file:///{os.path.abspath(report_path)}"
+            webbrowser.open(report_url)
+            self.log(f"Opening interactive report in your default web browser.")
+        except Exception as e:
+            self.log(f"Error opening web browser: {e}")
+
+    def monitor_thread(self, thread, task_type=None, output_dir=None):
         if thread.is_alive():
-            self.after(100, lambda: self.monitor_thread(thread))
+            self.after(100, lambda: self.monitor_thread(thread, task_type, output_dir))
         else:
             self.log("--- Task Finished ---")
             self.set_buttons_state("normal")
+            if task_type == "transaction_scraper":
+                self.show_dashboard(output_dir)
 
     def on_closing(self):
         self.save_config()

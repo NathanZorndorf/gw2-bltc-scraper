@@ -4,7 +4,8 @@ from datetime import datetime, timedelta
 import pandas as pd
 from openpyxl import load_workbook
 from openpyxl.utils import get_column_letter
-import matplotlib.pyplot as plt
+import plotly.graph_objects as go
+import plotly.io as pio
 from dotenv import load_dotenv
 
 def parse_coins_to_gold_silver(coins):
@@ -107,7 +108,7 @@ def aggregate_transactions(buys, sells):
             continue
         agg[iid]["sold_qty"] += qty
         agg[iid]["received"] += received
-    return {iid: data for iid, data in agg.items() if data["bought_qty"] > 0}
+    return {iid: data for iid, data in agg.items() if data["bought_qty"] > 0 and data["sold_qty"] > 0}
 
 def save_profit_report(agg, item_names, output_dir, status_callback):
     output_file = os.path.join(output_dir, "profit-report.xlsx")
@@ -134,25 +135,99 @@ def save_profit_report(agg, item_names, output_dir, status_callback):
 
     status_callback(f"Profit report saved to {output_file}")
 
-    # --- Analytics Visualizations ---
-    status_callback("Generating analytics visualizations...")
-    img_dir = os.path.join(output_dir, "img")
-    os.makedirs(img_dir, exist_ok=True)
+    # --- Analytics Visualizations with Plotly ---
+    status_callback("Generating interactive analytics visualizations...")
 
-    # ... (charting code remains the same, using img_dir)
-    plt.ioff() # Turn off interactive mode
+    # Set Plotly template
+    pio.templates.default = "plotly_dark"
 
+    # Prepare data
     top_profit_items = df[df["ROI (g.s)"] > 0].sort_values("ROI (g.s)", ascending=False).head(10)
-    plt.figure(figsize=(8,8))
-    plt.pie(top_profit_items["ROI (g.s)"], labels=top_profit_items["Item Name"], autopct='%1.1f%%', startangle=140)
-    plt.title("Top 10 Profitable Items (ROI in Gold)")
-    plt.tight_layout()
-    plt.savefig(os.path.join(img_dir, "profit_pie_chart.png"))
-    plt.close()
+    top_roi_items = df[df["ROI (%)"] > 0].sort_values("ROI (%)", ascending=False).head(10)
 
-    status_callback("Analytics charts saved.")
+    # Chart 1: Pie Chart for Top Profitable Items
+    fig1 = go.Figure(data=[go.Pie(
+        labels=top_profit_items["Item Name"],
+        values=top_profit_items["ROI (g.s)"],
+        hole=.3,
+        hovertemplate="<b>%{label}</b><br>Profit: %{value:.2f}g<br>%{percent}<extra></extra>"
+    )])
+    fig1.update_layout(title_text="Top 10 Profitable Items (by Gold)", height=450)
 
-def run_transaction_scraper(api_key: str, output_dir: str, status_callback=None):
+    # Chart 2: Bar Chart for Top Items by ROI (Gold)
+    fig2 = go.Figure(go.Bar(
+        y=top_profit_items["Item Name"],
+        x=top_profit_items["ROI (g.s)"],
+        orientation='h',
+        hovertemplate="<b>%{y}</b><br>Profit: %{x:.2f}g<extra></extra>"
+    ))
+    fig2.update_layout(
+        title_text="Top 10 Items by Profit (Gold)",
+        yaxis=dict(autorange="reversed"),
+        xaxis_title="Profit (Gold)",
+        height=450
+    )
+
+    # Chart 3: Bar Chart for Top Items by ROI (%)
+    fig3 = go.Figure(go.Bar(
+        y=top_roi_items["Item Name"],
+        x=top_roi_items["ROI (%)"],
+        orientation='h',
+        hovertemplate="<b>%{y}</b><br>ROI: %{x:.2%}<extra></extra>"
+    ))
+    fig3.update_layout(
+        title_text="Top 10 Items by ROI (%)",
+        yaxis=dict(autorange="reversed"),
+        xaxis_title="ROI (%)",
+        xaxis=dict(tickformat=".0%"),
+        height=450
+    )
+
+    # Combine charts into a single HTML file with a grid layout
+    report_html_path = os.path.join(output_dir, "interactive_report.html")
+    with open(report_html_path, 'w') as f:
+        f.write("""
+        <html>
+        <head>
+            <title>Interactive Report</title>
+            <style>
+                body { background-color: #1a1a1a; color: #f0f0f0; font-family: sans-serif; }
+                h1 { text-align: center; }
+                .grid-container {
+                    display: grid;
+                    grid-template-columns: 1fr 1fr;
+                    gap: 20px;
+                    padding: 20px;
+                }
+                .grid-item {
+                    background-color: #2a2a2a;
+                    border-radius: 8px;
+                    padding: 15px;
+                }
+                .grid-item-span-2 {
+                    grid-column: span 2;
+                }
+            </style>
+        </head>
+        <body>
+            <h1>Transaction Analysis Report</h1>
+            <div class="grid-container">
+        """)
+
+        # Embed charts into grid items
+        f.write(f'<div class="grid-item grid-item-span-2">{fig1.to_html(full_html=False, include_plotlyjs="cdn")}</div>')
+        f.write(f'<div class="grid-item">{fig2.to_html(full_html=False, include_plotlyjs=False)}</div>')
+        f.write(f'<div class="grid-item">{fig3.to_html(full_html=False, include_plotlyjs=False)}</div>')
+
+        f.write("""
+            </div>
+        </body>
+        </html>
+        """)
+
+    status_callback(f"Interactive report saved to {report_html_path}")
+
+def run_transaction_scraper(api_key: str, output_dir: str, status_callback=None, days: int = 30):
     if status_callback is None:
         status_callback = print
 
@@ -163,11 +238,11 @@ def run_transaction_scraper(api_key: str, output_dir: str, status_callback=None)
     os.makedirs(output_dir, exist_ok=True)
 
     buys, sells = fetch_transactions(api_key, status_callback)
-    buys = filter_last_n_days(buys, status_callback, n=30)
-    sells = filter_last_n_days(sells, status_callback, n=30)
+    buys = filter_last_n_days(buys, status_callback, n=days)
+    sells = filter_last_n_days(sells, status_callback, n=days)
 
     if not buys:
-        status_callback("No buy transactions found in the last 30 days.")
+        status_callback(f"No buy transactions found in the last {days} days.")
         return
 
     all_ids = [tx["item_id"] for tx in buys + sells]
