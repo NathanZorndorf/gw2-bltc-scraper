@@ -229,10 +229,10 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
         "Max Flips / Day", "Bought/Bids", "Sold/Offers",
         "Buy-Through Rate (%)", "Sell-Through Rate (%)", "Flip-Through Rate (%)",
-        "E(Profit | Qty = 1)", "E(ROI | Qty = 1)", "P(Buy = Qty)", "P(Sell = Qty)",
         "Optimal Qty", "Dynamic Sell-Through Rate (%)", "E(Sales | Q = Optimal Q)",
         "E(Profit | Q = Optimal Q)", "Optimal Investment (g)", "E(ROI | Q = Optimal Q)", "Time to Sell (Q Optimal)",
         "Target ROI", "Optimal Buy Price | Target ROI", "Optimal Qty | Target ROI",
+        "Theoretical Return | Target ROI",
         "Actual Qty Ordered", "Actual Buy Price", "Actual Sell Price",
         "Buy Order Placed", "Sell Order Placed", "Sold (manual)"
     ]
@@ -284,10 +284,6 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         ws[f'{L("Buy-Through Rate (%)")}{row}'].number_format = '0%'
         ws[f'{L("Sell-Through Rate (%)")}{row}'].number_format = '0%'
         ws[f'{L("Flip-Through Rate (%)")}{row}'].number_format = '0%'
-        ws[f'{L("E(Profit | Qty = 1)")}{row}'].number_format = '0.00'
-        ws[f'{L("E(ROI | Qty = 1)")}{row}'].number_format = '0%'
-        ws[f'{L("P(Buy = Qty)")}{row}'].number_format = '0.00'
-        ws[f'{L("P(Sell = Qty)")}{row}'].number_format = '0.00'
         ws[f'{L("Optimal Qty")}{row}'].number_format = '0'
         ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].number_format = '0%'
         ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].number_format = '0.00'
@@ -302,6 +298,7 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         ws[f'{L("Target ROI")}{row}'].number_format = '0%'
         ws[f'{L("Optimal Qty | Target ROI")}{row}'].number_format = '0'
         ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].number_format = '0.00'
+        ws[f'{L("Theoretical Return | Target ROI")}{row}'].number_format = '0.00'
 
         for int_col in ["Demand", "Supply", "Bought", "Sold", "Bids", "Offers"]:
             ws[f'{L(int_col)}{row}'].number_format = '#,##0'
@@ -315,10 +312,6 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         ws[f'{L("Buy-Through Rate (%)")}{row}'].value = f'=IF({L("Bids")}{row}=0,IF({L("Bought")}{row}>0,1,0),MIN(1,{L("Bought")}{row}/{L("Bids")}{row}))'
         ws[f'{L("Sell-Through Rate (%)")}{row}'].value = f'=IF({L("Offers")}{row}=0,IF({L("Sold")}{row}>0,1,0),MIN(1,{L("Sold")}{row}/{L("Offers")}{row}))'
         ws[f'{L("Flip-Through Rate (%)")}{row}'].value = f'={L("Buy-Through Rate (%)")}{row}*{L("Sell-Through Rate (%)")}{row}'
-        ws[f'{L("E(Profit | Qty = 1)")}{row}'].value = f'={L("Undercut (g)")}{row}*0.85*{L("Sell-Through Rate (%)")}{row}-{L("Overcut (g)")}{row}'
-        ws[f'{L("E(ROI | Qty = 1)")}{row}'].value = f'=IFERROR({L("E(Profit | Qty = 1)")}{row}/{L("Overcut (g)")}{row},0)'
-        ws[f'{L("P(Buy = Qty)")}{row}'].value = f'=BINOM.DIST({L("Actual Qty Ordered")}{row},{L("Actual Qty Ordered")}{row},{L("Buy-Through Rate (%)")}{row},FALSE)'
-        ws[f'{L("P(Sell = Qty)")}{row}'].value = f'=BINOM.DIST({L("Actual Qty Ordered")}{row},{L("Actual Qty Ordered")}{row},{L("Sell-Through Rate (%)")}{row},FALSE)'
         ws[f'{L("Optimal Qty")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Overcut (g)")}{row})-{L("Offers")}{row}),IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
         ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].value = f'=IFERROR(IF({L("Optimal Qty")}{row}>0,MIN(1,{L("Sold")}{row}/({L("Offers")}{row}+{L("Optimal Qty")}{row})),NA()),"")'
         ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Dynamic Sell-Through Rate (%)")}{row}'
@@ -331,6 +324,7 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         ws[f'{L("Target ROI")}{row}'].value = f'={ROI_TARGET_DEFAULT}'
         ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0)'
         ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
+        ws[f'{L("Theoretical Return | Target ROI")}{row}'].value = f'=({L("Undercut (g)")}{row}*0.85-{L("Optimal Buy Price | Target ROI")}{row})*{L("Optimal Qty | Target ROI")}{row}'
 
     ws.auto_filter.ref = ws.dimensions
     for col_cells in ws.columns:
