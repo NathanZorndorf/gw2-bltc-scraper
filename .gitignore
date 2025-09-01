@@ -3,3 +3,8 @@
 **/*.png
 **/*.html
 .env
+
+# PyInstaller
+/build/
+/dist/
+*.spec
