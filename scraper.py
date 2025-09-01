@@ -16,7 +16,7 @@ import argparse
 
 # Constants
 BASE_URL = "https://www.gw2bltc.com/en/tp/search"
-DATAWARS_API_URL = "https://api.datawars2.ie/gw2/v2/history/hourly/json"
+DATAWARS_API_URL = "https://api.datawars2.ie/gw2/v2/history/json"
 DEFAULT_PARAMS = {
     "profit-min": 500,
     "profit-pct-min": 10,
@@ -57,10 +57,10 @@ def parse_int(td):
     except ValueError:
         return 0
     
-def get_datawars_data(item_ids, status_callback):
+def get_datawars_data(item_ids, status_callback, days=7):
     """Fetches and processes data from the DataWars2 API for multiple item IDs with retry logic."""
     end_date = datetime.now(timezone.utc)
-    start_date = end_date - timedelta(days=7)
+    start_date = end_date - timedelta(days=days)
     params = {
         "itemID": ",".join(item_ids),
         "start": start_date.strftime('%Y-%m-%dT%H:%M:%SZ'),
@@ -77,6 +77,11 @@ def get_datawars_data(item_ids, status_callback):
             data = r.json()
             if not data:
                 return {}
+
+            # Verification check
+            returned_item_ids = {str(d['itemID']) for d in data}
+            if len(returned_item_ids) != len(item_ids):
+                status_callback(f"Warning: Requested {len(item_ids)} items, but received data for {len(returned_item_ids)}.")
 
             results = {}
             for item_id in item_ids:
@@ -96,26 +101,40 @@ def get_datawars_data(item_ids, status_callback):
                 if df.empty or df['buy_price_max'].sum() == 0 or df['sell_price_min'].sum() == 0:
                     results[item_id] = None
                     continue
-
-                df['date'] = pd.to_datetime(df['date'])
-                df['date'] = df['date'].dt.tz_convert(local_tz)
                 
-                df_daily = df.resample('D', on='date').agg('sum')
-                df_daily_avg = df_daily.median().astype(int)
+                # New calculations
+                avg_buy_price = df[df['buy_price_max'] > 0]['buy_price_max'].mean() / 10000
+                avg_sell_price = df[df['sell_price_min'] > 0]['sell_price_min'].mean() / 10000
+                std_dev_buy_price = df[df['buy_price_max'] > 0]['buy_price_max'].std() / 10000
+                std_dev_sell_price = df[df['sell_price_min'] > 0]['sell_price_min'].std() / 10000
+
+                # Instantaneous prices
+                buy_price_inst = (df['buy_price_max'].iloc[-1] / 10000) if not df.empty else 0
+                sell_price_inst = (df['sell_price_min'].iloc[-1] / 10000) if not df.empty else 0
+
+                # New columns
+                cov_buy = std_dev_buy_price / avg_buy_price if avg_buy_price else 0
+                cov_sell = std_dev_sell_price / avg_sell_price if avg_sell_price else 0
+                iv_buy = (buy_price_inst - avg_buy_price) / avg_buy_price if avg_buy_price else 0
+                iv_sell = (sell_price_inst - avg_sell_price) / avg_sell_price if avg_sell_price else 0
 
                 results[item_id] = {
-                    "Buy Price (Inst.)": (df['buy_price_max'].iloc[-1] / 10000) if not df.empty else 0,
-                    "Sell Price (Inst.)": (df['sell_price_min'].iloc[-1] / 10000) if not df.empty else 0,
+                    "Buy Price (Inst.)": buy_price_inst,
+                    "Sell Price (Inst.)": sell_price_inst,
                     "Demand": int(df['buy_quantity'].mean()),
                     "Supply": int(df['sell_quantity'].mean()),
-                    "Bought": df_daily_avg.get('buy_sold', 0),
-                    "Sold": df_daily_avg.get('sell_sold', 0),
-                    "Bids": df_daily_avg.get('buy_listed', 0),
-                    "Offers": df_daily_avg.get('sell_listed', 0),
-                    "Avg Buy Price (7d)": np.median(df[df['buy_price_max'] > 0]['buy_price_max']) / 10000 if not df[df['buy_price_max'] > 0].empty else 0,
-                    "Avg Sell Price (7d)": np.median(df[df['sell_price_min'] > 0]['sell_price_min']) / 10000 if not df[df['sell_price_min'] > 0].empty else 0,
-                    "Std Dev Buy Price (7d)": np.std(df[df['buy_price_max'] > 0]['buy_price_max']) / 10000 if not df[df['buy_price_max'] > 0].empty else 0,
-                    "Std Dev Sell Price (7d)": np.std(df[df['sell_price_min'] > 0]['sell_price_min']) / 10000 if not df[df['sell_price_min'] > 0].empty else 0,
+                    "Bought": int(df['buy_sold'].sum()),
+                    "Sold": int(df['sell_sold'].sum()),
+                    "Bids": int(df['buy_listed'].sum()),
+                    "Offers": int(df['sell_listed'].sum()),
+                    "Avg Buy Price": avg_buy_price,
+                    "Avg Sell Price": avg_sell_price,
+                    "Std Dev Buy Price": std_dev_buy_price,
+                    "Std Dev Sell Price": std_dev_sell_price,
+                    "Coefficient of Variation (Buy)": cov_buy,
+                    "Coefficient of Variation (Sell)": cov_sell,
+                    "Instantaneous Volatility (Buy)": iv_buy,
+                    "Instantaneous Volatility (Sell)": iv_sell,
                 }
             return results
         except requests.exceptions.RequestException as e:
@@ -128,7 +147,7 @@ def get_datawars_data(item_ids, status_callback):
     return {}
 
 
-def run_scraper(historical: bool, output_dir: str, status_callback=None):
+def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0, status_callback=None):
     if status_callback is None:
         status_callback = print
 
@@ -143,6 +162,9 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
     scrape_time_str = datetime.now().strftime("%Y-%m-%d %H:%M")
 
     while True:
+        if pages > 0 and params['page'] > pages:
+            status_callback(f"Reached page limit of {pages}.")
+            break
         status_callback(f"Fetching page {params['page']}...")
         try:
             r = requests.get(BASE_URL, params=params, timeout=20)
@@ -177,10 +199,10 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
             page_items.append(item_data)
             page_item_ids.append(item_id)
 
-        for i in range(0, len(page_item_ids), 5):
-            batch_ids = page_item_ids[i:i+5]
-            batch_items = page_items[i:i+5]
-            api_data_dict = get_datawars_data(batch_ids, status_callback) if historical else {item["item_id"]: None for item in batch_items}
+        for i in range(0, len(page_item_ids), 50):
+            batch_ids = page_item_ids[i:i+50]
+            batch_items = page_items[i:i+50]
+            api_data_dict = get_datawars_data(batch_ids, status_callback, days=days) if historical else {item["item_id"]: None for item in batch_items}
 
             for item_data in batch_items:
                 api_data = api_data_dict.get(item_data["item_id"])
@@ -192,11 +214,13 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
                 ]
                 if api_data:
                     row_data.extend([
-                        api_data["Avg Buy Price (7d)"], api_data["Avg Sell Price (7d)"],
-                        api_data["Std Dev Buy Price (7d)"], api_data["Std Dev Sell Price (7d)"]
+                        api_data["Avg Buy Price"], api_data["Avg Sell Price"],
+                        api_data["Std Dev Buy Price"], api_data["Std Dev Sell Price"],
+                        api_data["Coefficient of Variation (Buy)"], api_data["Coefficient of Variation (Sell)"],
+                        api_data["Instantaneous Volatility (Buy)"], api_data["Instantaneous Volatility (Sell)"]
                     ])
                 else:
-                    row_data.extend(['', '', '', ''])
+                    row_data.extend(['', '', '', '', '', '', '', ''])
                 all_rows.append(row_data)
         params["page"] += 1
 
@@ -219,13 +243,17 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
     df = pd.DataFrame(all_rows, columns=[
         "Item Name", "Item Link", "Date of Scrape", "Buy Price (Inst.)", "Sell Price (Inst.)",
         "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
-        "Avg Buy Price (7d)", "Avg Sell Price (7d)", "Std Dev Buy Price (7d)", "Std Dev Sell Price (7d)"
+        "Avg Buy Price", "Avg Sell Price", "Std Dev Buy Price", "Std Dev Sell Price",
+        "Coefficient of Variation (Buy)", "Coefficient of Variation (Sell)",
+        "Instantaneous Volatility (Buy)", "Instantaneous Volatility (Sell)"
     ])
 
     final_column_order = [
         "Item Name", "Item Link", "Date of Scrape", "Buy Price (Inst.)", "Sell Price (Inst.)",
         "Demand", "Supply", "Bought", "Sold", "Bids", "Offers",
-        "Avg Buy Price (7d)", "Avg Sell Price (7d)", "Std Dev Buy Price (7d)", "Std Dev Sell Price (7d)",
+        "Avg Buy Price", "Avg Sell Price", "Std Dev Buy Price", "Std Dev Sell Price",
+        "Coefficient of Variation (Buy)", "Coefficient of Variation (Sell)",
+        "Instantaneous Volatility (Buy)", "Instantaneous Volatility (Sell)",
         "Overcut (%)", "Undercut (%)", "Overcut (g)", "Undercut (g)",
         "Max Flips / Day", "Bought/Bids", "Sold/Offers",
         "Buy-Through Rate (%)", "Sell-Through Rate (%)", "Flip-Through Rate (%)",
@@ -270,10 +298,14 @@ def run_scraper(historical: bool, output_dir: str, status_callback=None):
         # Number formats
         ws[f'{L("Buy Price (Inst.)")}{row}'].number_format = '0.00'
         ws[f'{L("Sell Price (Inst.)")}{row}'].number_format = '0.00'
-        ws[f'{L("Avg Buy Price (7d)")}{row}'].number_format = '0.00'
-        ws[f'{L("Avg Sell Price (7d)")}{row}'].number_format = '0.00'
-        ws[f'{L("Std Dev Buy Price (7d)")}{row}'].number_format = '0.0000'
-        ws[f'{L("Std Dev Sell Price (7d)")}{row}'].number_format = '0.0000'
+        ws[f'{L("Avg Buy Price")}{row}'].number_format = '0.00'
+        ws[f'{L("Avg Sell Price")}{row}'].number_format = '0.00'
+        ws[f'{L("Std Dev Buy Price")}{row}'].number_format = '0.00'
+        ws[f'{L("Std Dev Sell Price")}{row}'].number_format = '0.00'
+        ws[f'{L("Coefficient of Variation (Buy)")}{row}'].number_format = '0%'
+        ws[f'{L("Coefficient of Variation (Sell)")}{row}'].number_format = '0%'
+        ws[f'{L("Instantaneous Volatility (Buy)")}{row}'].number_format = '0%'
+        ws[f'{L("Instantaneous Volatility (Sell)")}{row}'].number_format = '0%'
         ws[f'{L("Overcut (%)")}{row}'].number_format = '0%'
         ws[f'{L("Undercut (%)")}{row}'].number_format = '0%'
         ws[f'{L("Overcut (g)")}{row}'].number_format = '0.00'
@@ -343,6 +375,8 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="GW2 BLTC Scraper")
     parser.add_argument('--historical', action='store_true', help='Query DataWars2 API for historical data')
     parser.add_argument('--output_dir', type=str, default='.', help='Directory to save the output file')
+    parser.add_argument('--days', type=int, default=7, help='Number of days of historical data to query')
+    parser.add_argument('--pages', type=int, default=0, help='Number of pages to scrape (0 for all)')
     args = parser.parse_args()
 
-    run_scraper(historical=args.historical, output_dir=args.output_dir)
+    run_scraper(historical=args.historical, output_dir=args.output_dir, days=args.days, pages=args.pages)

@@ -28,8 +28,21 @@ class App(ctk.CTk):
         self.scraper_frame.grid_columnconfigure(1, weight=1)
         self.scraper_label = ctk.CTkLabel(self.scraper_frame, text="Item Flip Scraper", font=ctk.CTkFont(size=16, weight="bold"))
         self.scraper_label.grid(row=0, column=0, columnspan=2, padx=10, pady=10)
-        self.historical_check = ctk.CTkCheckBox(self.scraper_frame, text="Fetch 7-day Historical Data (slower)")
-        self.historical_check.grid(row=1, column=0, columnspan=2, padx=10, pady=5)
+        self.historical_check = ctk.CTkCheckBox(self.scraper_frame, text="Fetch Historical Data (slower)")
+        self.historical_check.grid(row=1, column=0, padx=10, pady=5, sticky="w")
+
+        self.days_label = ctk.CTkLabel(self.scraper_frame, text="Days of history:")
+        self.days_label.grid(row=1, column=1, padx=(10,0), pady=5, sticky="w")
+        self.days_entry = ctk.CTkEntry(self.scraper_frame, width=50)
+        self.days_entry.grid(row=1, column=1, padx=(90,10), pady=5, sticky="w")
+        self.days_entry.insert(0, "7")
+
+        self.pages_label = ctk.CTkLabel(self.scraper_frame, text="Pages to scrape (0 for all):")
+        self.pages_label.grid(row=1, column=1, padx=(150,0), pady=5, sticky="w")
+        self.pages_entry = ctk.CTkEntry(self.scraper_frame, width=50)
+        self.pages_entry.grid(row=1, column=1, padx=(300,10), pady=5, sticky="w")
+        self.pages_entry.insert(0, "0")
+
         self.run_scraper_button = ctk.CTkButton(self.scraper_frame, text="Run Scraper", command=self.start_scraper_thread)
         self.run_scraper_button.grid(row=2, column=0, columnspan=2, padx=10, pady=10)
 
@@ -114,7 +127,21 @@ class App(ctk.CTk):
         self.set_buttons_state("disabled")
         self.log("--- Starting Item Flip Scraper ---")
         historical = self.historical_check.get()
-        thread = threading.Thread(target=run_scraper, args=(historical, self.output_dir, self.safe_log))
+        days = 7
+        try:
+            days = int(self.days_entry.get())
+        except ValueError:
+            self.log("Invalid input for days. Using default of 7.")
+            days = 7
+
+        pages = 0
+        try:
+            pages = int(self.pages_entry.get())
+        except ValueError:
+            self.log("Invalid input for pages. Using default of 0 (all).")
+            pages = 0
+
+        thread = threading.Thread(target=run_scraper, args=(historical, self.output_dir, days, pages, self.safe_log))
         thread.daemon = True
         thread.start()
         self.monitor_thread(thread)
