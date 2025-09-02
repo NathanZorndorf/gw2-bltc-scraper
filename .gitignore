@@ -10,3 +10,4 @@
 *.spec
 *.pyc
 config.json
+.vscode/launch.json
