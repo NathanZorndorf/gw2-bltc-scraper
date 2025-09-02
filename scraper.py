@@ -91,22 +91,22 @@ def get_datawars_data(item_ids, status_callback, days=7):
                     continue
 
                 df = pd.DataFrame(item_data)
-                required_cols = ['buy_price_max', 'sell_price_min', 'buy_listed', 'buy_sold', 'sell_listed', 'sell_sold', 'buy_quantity', 'sell_quantity']
+                required_cols = ['buy_price_avg','sell_price_avg','buy_price_max', 'sell_price_min', 'buy_listed', 'buy_sold', 'sell_listed', 'sell_sold', 'buy_quantity', 'sell_quantity']
                 for col in required_cols:
                     if col not in df.columns:
                         df[col] = 0
                 for col in required_cols:
                     df[col] = pd.to_numeric(df[col], errors='coerce').fillna(0)
 
-                if df.empty or df['buy_price_max'].sum() == 0 or df['sell_price_min'].sum() == 0:
+                if df.empty or df['buy_price_avg'].sum() == 0 or df['sell_price_avg'].sum() == 0:
                     results[item_id] = None
                     continue
                 
                 # New calculations
-                avg_buy_price = df[df['buy_price_max'] > 0]['buy_price_max'].mean() / 10000
-                avg_sell_price = df[df['sell_price_min'] > 0]['sell_price_min'].mean() / 10000
-                std_dev_buy_price = df[df['buy_price_max'] > 0]['buy_price_max'].std() / 10000
-                std_dev_sell_price = df[df['sell_price_min'] > 0]['sell_price_min'].std() / 10000
+                avg_buy_price = df[df['buy_price_avg'] > 0]['buy_price_avg'].mean() / 10000
+                avg_sell_price = df[df['sell_price_avg'] > 0]['sell_price_avg'].mean() / 10000
+                std_dev_buy_price = df[df['buy_price_avg'] > 0]['buy_price_avg'].std() / 10000
+                std_dev_sell_price = df[df['sell_price_avg'] > 0]['sell_price_avg'].std() / 10000
 
                 # Instantaneous prices
                 buy_price_inst = (df['buy_price_max'].iloc[-1] / 10000) if not df.empty else 0
@@ -354,7 +354,7 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
 
         # New formulas for Target ROI
         ws[f'{L("Target ROI")}{row}'].value = f'={ROI_TARGET_DEFAULT}'
-        ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0)'
+        ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=LET(q, IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0), IF(q > {L("Buy Price (Inst.)")}{row}, q, 0)))'
         ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
         ws[f'{L("Theoretical Return | Target ROI")}{row}'].value = f'=({L("Undercut (g)")}{row}*0.85-{L("Optimal Buy Price | Target ROI")}{row})*{L("Optimal Qty | Target ROI")}{row}'
 
