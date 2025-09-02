@@ -91,7 +91,7 @@ def get_datawars_data(item_ids, status_callback, days=7):
                     continue
 
                 df = pd.DataFrame(item_data)
-                required_cols = ['buy_price_avg','sell_price_avg','buy_price_max', 'sell_price_min', 'buy_listed', 'buy_sold', 'sell_listed', 'sell_sold', 'buy_quantity', 'sell_quantity']
+                required_cols = ['buy_price_avg','sell_price_avg','buy_price_max', 'sell_price_min', 'buy_listed', 'buy_sold', 'sell_listed', 'sell_sold', 'buy_quantity', 'sell_quantity', 'buy_quantity_avg', 'sell_quantity_avg']
                 for col in required_cols:
                     if col not in df.columns:
                         df[col] = 0
@@ -115,12 +115,12 @@ def get_datawars_data(item_ids, status_callback, days=7):
                 results[item_id] = {
                     "Buy Price (Inst.)": buy_price_inst,
                     "Sell Price (Inst.)": sell_price_inst,
-                    "Demand": int(df['buy_quantity'].mean()),
-                    "Supply": int(df['sell_quantity'].mean()),
-                    "Bought": int(df['buy_sold'].sum()),
-                    "Sold": int(df['sell_sold'].sum()),
-                    "Bids": int(df['buy_listed'].sum()),
-                    "Offers": int(df['sell_listed'].sum()),
+                    "Demand": int(df['buy_quantity_avg'].mean()),
+                    "Supply": int(df['sell_quantity_avg'].mean()),
+                    "Bought": int(df['buy_sold'].mean()),
+                    "Sold": int(df['sell_sold'].mean()),
+                    "Bids": int(df['buy_listed'].mean()),
+                    "Offers": int(df['sell_listed'].mean()),
                     "Avg Buy Price": avg_buy_price,
                     "Avg Sell Price": avg_sell_price,
                     "Std Dev Buy Price": std_dev_buy_price,
