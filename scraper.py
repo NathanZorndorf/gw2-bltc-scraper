@@ -112,12 +112,6 @@ def get_datawars_data(item_ids, status_callback, days=7):
                 buy_price_inst = (df['buy_price_max'].iloc[-1] / 10000) if not df.empty else 0
                 sell_price_inst = (df['sell_price_min'].iloc[-1] / 10000) if not df.empty else 0
 
-                # New columns
-                cov_buy = std_dev_buy_price / avg_buy_price if avg_buy_price else 0
-                cov_sell = std_dev_sell_price / avg_sell_price if avg_sell_price else 0
-                iv_buy = (buy_price_inst - avg_buy_price) / avg_buy_price if avg_buy_price else 0
-                iv_sell = (sell_price_inst - avg_sell_price) / avg_sell_price if avg_sell_price else 0
-
                 results[item_id] = {
                     "Buy Price (Inst.)": buy_price_inst,
                     "Sell Price (Inst.)": sell_price_inst,
@@ -131,10 +125,6 @@ def get_datawars_data(item_ids, status_callback, days=7):
                     "Avg Sell Price": avg_sell_price,
                     "Std Dev Buy Price": std_dev_buy_price,
                     "Std Dev Sell Price": std_dev_sell_price,
-                    "Coefficient of Variation (Buy)": cov_buy,
-                    "Coefficient of Variation (Sell)": cov_sell,
-                    "Instantaneous Volatility (Buy)": iv_buy,
-                    "Instantaneous Volatility (Sell)": iv_sell,
                 }
             return results
         except requests.exceptions.RequestException as e:
@@ -216,8 +206,7 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
                     row_data.extend([
                         api_data["Avg Buy Price"], api_data["Avg Sell Price"],
                         api_data["Std Dev Buy Price"], api_data["Std Dev Sell Price"],
-                        api_data["Coefficient of Variation (Buy)"], api_data["Coefficient of Variation (Sell)"],
-                        api_data["Instantaneous Volatility (Buy)"], api_data["Instantaneous Volatility (Sell)"]
+                        '', '', '', ''
                     ])
                 else:
                     row_data.extend(['', '', '', '', '', '', '', ''])
@@ -318,7 +307,7 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
         ws[f'{L("Flip-Through Rate (%)")}{row}'].number_format = '0%'
         ws[f'{L("Optimal Qty")}{row}'].number_format = '0'
         ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].number_format = '0%'
-        ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].number_format = '0.00'
+        ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].number_format = '0'
         ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].number_format = '0.00'
         ws[f'{L("Optimal Investment (g)")}{row}'].number_format = '0.00'
         ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].number_format = '0%'
@@ -336,6 +325,10 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
             ws[f'{L(int_col)}{row}'].number_format = '#,##0'
 
         # Formulas
+        ws[f'{L("Coefficient of Variation (Buy)")}{row}'].value = f'=IFERROR({L("Std Dev Buy Price")}{row}/{L("Avg Buy Price")}{row},0)'
+        ws[f'{L("Coefficient of Variation (Sell)")}{row}'].value = f'=IFERROR({L("Std Dev Sell Price")}{row}/{L("Avg Sell Price")}{row},0)'
+        ws[f'{L("Instantaneous Volatility (Buy)")}{row}'].value = f'=IFERROR(({L("Buy Price (Inst.)")}{row}-{L("Avg Buy Price")}{row})/{L("Avg Buy Price")}{row},0)'
+        ws[f'{L("Instantaneous Volatility (Sell)")}{row}'].value = f'=IFERROR(({L("Sell Price (Inst.)")}{row}-{L("Avg Sell Price")}{row})/{L("Avg Sell Price")}{row},0)'
         ws[f'{L("Overcut (g)")}{row}'].value = f'={L("Buy Price (Inst.)")}{row}*{L("Overcut (%)")}{row}'
         ws[f'{L("Undercut (g)")}{row}'].value = f'={L("Sell Price (Inst.)")}{row}*{L("Undercut (%)")}{row}'
         ws[f'{L("Max Flips / Day")}{row}'].value = f'=MIN({L("Bought")}{row},{L("Sold")}{row})'
@@ -346,7 +339,7 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
         ws[f'{L("Flip-Through Rate (%)")}{row}'].value = f'={L("Buy-Through Rate (%)")}{row}*{L("Sell-Through Rate (%)")}{row}'
         ws[f'{L("Optimal Qty")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Overcut (g)")}{row})-{L("Offers")}{row}),IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
         ws[f'{L("Dynamic Sell-Through Rate (%)")}{row}'].value = f'=IFERROR(IF({L("Optimal Qty")}{row}>0,MIN(1,{L("Sold")}{row}/({L("Offers")}{row}+{L("Optimal Qty")}{row})),NA()),"")'
-        ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Dynamic Sell-Through Rate (%)")}{row}'
+        ws[f'{L("E(Sales | Q = Optimal Q)")}{row}'].value = f'=ROUND({L("Optimal Qty")}{row}*{L("Dynamic Sell-Through Rate (%)")}{row}, 0)'
         ws[f'{L("E(Profit | Q = Optimal Q)")}{row}'].value = f'={L("E(Sales | Q = Optimal Q)")}{row}*{L("Undercut (g)")}{row}*0.85-{L("Overcut (g)")}{row}*{L("Optimal Qty")}{row}'
         ws[f'{L("Optimal Investment (g)")}{row}'].value = f'={L("Optimal Qty")}{row}*{L("Overcut (g)")}{row}'
         ws[f'{L("E(ROI | Q = Optimal Q)")}{row}'].value = f'=IFERROR({L("E(Profit | Q = Optimal Q)")}{row}/{L("Optimal Investment (g)")}{row},0)'
@@ -354,8 +347,8 @@ def run_scraper(historical: bool, output_dir: str, days: int = 7, pages: int = 0
 
         # New formulas for Target ROI
         ws[f'{L("Target ROI")}{row}'].value = f'={ROI_TARGET_DEFAULT}'
-        ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=LET(q, IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0), IF(q > {L("Buy Price (Inst.)")}{row}, q, 0)))'
-        ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row})))'
+        ws[f'{L("Optimal Buy Price | Target ROI")}{row}'].value = f'=IFERROR(({L("Undercut (g)")}{row}*0.85)/(1+{L("Target ROI")}{row}), 0)'
+        ws[f'{L("Optimal Qty | Target ROI")}{row}'].value = f'=IF({L("Optimal Buy Price | Target ROI")}{row} < {L("Buy Price (Inst.)")}{row}, 0, LET(q,ROUND(SQRT({L("Sold")}{row}*{L("Offers")}{row}*{L("Undercut (g)")}{row}*0.85/{L("Optimal Buy Price | Target ROI")}{row}) - {L("Offers")}{row}), IF(q<0,0,MIN(q,{L("Max Flips / Day")}{row}))))'
         ws[f'{L("Theoretical Return | Target ROI")}{row}'].value = f'=({L("Undercut (g)")}{row}*0.85-{L("Optimal Buy Price | Target ROI")}{row})*{L("Optimal Qty | Target ROI")}{row}'
 
     ws.auto_filter.ref = ws.dimensions
