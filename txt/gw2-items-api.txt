@@ -1,0 +1,398 @@
+API:2/items
+< API:2
+Jump to navigationJump to search
+/v2/items
+
+HTTP methodGETFormatjsonAPI versionversion 2Release date2014-09-25ScopenoneOptionalnone
+This resource returns information about items that were discovered by players in the game.
+
+
+Contents
+1	Endpoints
+2	Parameters
+3	Response
+3.1	Armor
+3.2	Back item
+3.3	Bag
+3.4	Consumable
+3.5	Container
+3.6	Gathering
+3.7	Gizmo
+3.8	Miniature
+3.9	Salvage kits
+3.10	Trinket
+3.11	Upgrade component
+3.12	Weapon
+3.13	Other types
+4	Subobjects
+4.1	Infix upgrade subobject
+4.2	Infusion slots subobject
+5	Example
+Endpoints
+None – Request the list of all available items ids when the root endpoint (v2/items) has been accessed.
+id – (Optional) Request items for the specified id when accessing the endpoint (v2/items/id). Cannot be used when specifying the ids parameter.
+Parameters
+lang – (Optional) Request localized information.
+ids – (Optional; Comma Delimited List) Request an array of items for the specified ids. Cannot be used when using the id endpoint.
+Response
+For each requested item id, an object with the following properties is returned:
+
+id (number) – The item id.
+chat_link (string) – The chat link.
+name (string) – The item name.
+icon (string, optional) – The full icon URL.
+description (string, optional) – The item description.
+type (string) – The item type (see below). Possible values:
+Armor – Armor
+Back – Back item
+Bag – Bags
+Consumable – Consumables
+Container – Containers
+CraftingMaterial – Crafting materials
+Gathering – Gathering tools, baits and lures
+Gizmo – Gizmos
+JadeTechModule – Sensory Array and Service Chip modules
+Key
+MiniPet – Miniatures
+PowerCore – Power Cores
+Relic – Relics
+Tool – Salvage kits
+Trait – Trait guides
+Trinket – Trinkets
+Trophy – Trophies
+UpgradeComponent – Upgrade components
+Weapon – Weapons
+rarity (string) – The item rarity. Possible values:
+Junk
+Basic
+Fine
+Masterwork
+Rare
+Exotic
+Ascended
+Legendary
+level (number) – The required level.
+vendor_value (number) – The value in coins when selling to a vendor. (Can be non-zero even when the item has the NoSell flag.)
+default_skin (number, optional) – The default skin id.
+flags (array of strings) – Flags applying to the item. Possible values:
+AccountBindOnUse – Account bound on use
+AccountBound – Account bound on acquire
+Attuned – If the item is attuned
+BulkConsume – If the item can be bulk consumed
+DeleteWarning – If the item will prompt the player with a warning when deleting
+HideSuffix – Hide the suffix of the upgrade component
+Infused – If the item is infused
+MonsterOnly
+NoMysticForge – Not usable in the Mystic Forge
+NoSalvage – Not salvageable
+NoSell – Not sellable
+NotUpgradeable – Not upgradeable
+NoUnderwater – Not available underwater
+SoulbindOnAcquire – Soulbound on acquire
+SoulBindOnUse – Soulbound on use
+Tonic – If the item is a tonic
+Unique – Unique
+game_types (array of strings) – The game types in which the item is usable. At least one game type is usually specified (although some outliers are missing this key). Possible values:
+Activity – Usable in activities
+Dungeon – Usable in dungeons
+Pve – Usable in general PvE
+Pvp – Usable in PvP
+PvpLobby – Usable in the Heart of the Mists
+Wvw – Usable in World vs. World
+restrictions (array of strings) – Restrictions applied to the item. Possible values:
+Asura
+Charr
+Female
+Human
+Norn
+Revenant
+Sylvari
+Elementalist
+Engineer
+Guardian
+Mesmer
+Necromancer
+Ranger
+Thief
+Warrior
+upgrades_into (array, optional) – Lists what items this item can be upgraded into, and the method of upgrading. Each object in the array has the following attributes:
+upgrade (string) – Describes the method of upgrading. Possible values:
+Attunement
+Infusion
+item_id (integer) – The item ID that results from performing the upgrade.
+upgrades_from (array, optional) – Lists what items this item can be upgraded from, and the method of upgrading. See upgrades_into for format.
+details (object, optional) – Additional item details if applicable, depending on the item type (see below).
+Armor
+For armor, the details object contains the following properties:
+
+type (string) – The armor slot type.
+Boots – Feet slot
+Coat – Chest slot
+Gloves – Hands slot
+Helm – Helm slot
+HelmAquatic – Breathing apparatus slot
+Leggings – Legs slot
+Shoulders – Shoulders slot
+weight_class (string) – The weight class of the armor piece.
+Heavy – Heavy armor
+Medium – Medium armor
+Light – Light armor
+Clothing – Town clothing
+defense (number) – The defense value of the armor piece.
+infusion_slots (array of objects) – Infusion slots of the armor piece (see below).
+attribute_adjustment (number) – The (x) value to be combined with the (m, gradient) multiplier and (c, offset) value to calculate the value of an attribute using API:2/itemstats.
+infix_upgrade (object, optional) – The infix upgrade object (see below).
+suffix_item_id (number, optional) – The suffix item id. This is usually a rune.
+secondary_suffix_item_id (string) – The secondary suffix item id. Equals to an empty string if there is no secondary suffix item.
+stat_choices (array of numbers, optional) – A list of selectable stat IDs which are visible in API:2/itemstats
+Back item
+For back items, the details object contains the following properties:
+
+infusion_slots (array of objects) – Infusion slots of the back item (see below).
+attribute_adjustment (number) – The (x) value to be combined with the (m, gradient) multiplier and (c, offset) value to calculate the value of an attribute using API:2/itemstats.
+infix_upgrade (object, optional) – The infix upgrade object (see below).
+suffix_item_id (number, optional) – The suffix item id. This is usually a jewel.
+secondary_suffix_item_id (string) – The secondary suffix item id. Equals to an empty string if there is no secondary suffix item.
+stat_choices (array of numbers, optional) – A list of selectable stat IDs which are visible in API:2/itemstats
+Bag
+For bags, the details object contains the following properties:
+
+size (number) – The number of bag slots.
+no_sell_or_sort (boolean) – Whether the bag is invisible/safe, and contained items won't show up at merchants etc.
+Consumable
+For consumables, the details object contains the following properties:
+
+type (string) – Consumable type. Possible values:
+AppearanceChange – For Total Makeover Kits, Self-Style Hair Kits, and Name Change Contracts
+Booze – Alcohol consumables
+ContractNpc – For Trading Post Express, Merchant Express, Golem Banker, Banker Golem (2 weeks)
+Currency – Some currencies
+Food – Food consumables
+Generic – Various consumables
+Halloween – Some boosters
+Immediate – Consumables granting immediate effect (most boosters, Pacified Magical Storm). Also used for currency items that are consumed immediately upon receipt.
+MountRandomUnlock – For Mount licenses
+RandomUnlock – For Guaranteed (Armor, Wardrobe, Weapon; Blue-Green Dye, Purple-Gray Dye, Red-Brown Dye, Yellow-Orange Dye) Unlocks
+Transmutation – Skin consumables
+Unlock – Unlock consumables
+UpgradeRemoval – For Upgrade Extractor
+Utility – Utility items (Potions etc.)
+TeleportToFriend – Used for Teleport to Friend
+description (string, optional) – Effect description for consumables applying an effect.
+duration_ms (number, optional) – Effect duration in milliseconds.
+unlock_type (string, optional) – Unlock type for unlock consumables. Possible values:
+BagSlot – For Bag Slot Expansion
+BankTab – For Bank Tab Expansion
+BuildLibrarySlot - For Build Storage Expansions
+BuildLoadoutTab - For Equipment Template Expansions
+Champion – For Mist Champions
+CollectibleCapacity – For Storage Expander
+Content – Finishers and Collection unlocks, and Commander's Compendium
+CraftingRecipe – Crafting recipes
+Dye – Dyes
+GearLoadoutTab - Equipment Template Expansions
+GliderSkin – For Gliders
+JadeBotSkin – For Jade_Bot#Jade_Bot_skins
+Minipet – For Miniatures
+Ms – For Mount Skins
+Outfit – For Outfits
+RandomUlock for items which unlock a random selection from a given set (see Guaranteed Wardrobe Unlock). [verification requested]
+SharedSlot – For Shared Inventory Slots
+color_id (number, optional) – The dye id for dye unlocks.
+recipe_id (number, optional) – The recipe id for recipe unlocks.
+extra_recipe_ids (array of numbers, optional) – Additional recipe ids for recipe unlocks.
+guild_upgrade_id (number, optional) – The guild upgrade id for the item; resolvable against API:2/guild/upgrades.
+apply_count (number, optional) – The number of stacks of the effect applied by this item.
+name (string, optional) – The effect type name of the consumable.
+icon (string, optional) – The icon of the effect.
+skins (array of numbers, optional) – A list of skin ids which this item unlocks; resolvable against API:2/skins.
+Container
+For containers, the details object contains the following property:
+
+type (string) – The container type. Possible values:
+Default
+GiftBox – For some presents and most dye kits
+Immediate – For containers without a UI (e.g. Pile of Silky Sand, Black Lion Arsenal—Axe, Divine Passage, Iboga Petals)
+OpenUI – For containers that have their own UI when opening (Black Lion Chest)
+Gathering
+For gathering tools, baits and lures the details object contains the following property:
+
+type (string) – The type. Possible values:
+Foraging – For harvesting sickles
+Logging – For logging axes
+Mining – For mining picks
+Bait – For baits
+Lure – For lures
+Fishing - For the fishing rod
+Gizmo
+For gizmo items, the details object contains the following properties:
+
+type (string) – The gizmo type. Possible values:
+Default
+ContainerKey – For Black Lion Chest Keys.
+RentableContractNpc – For time-limited NPC services (e.g. Golem Banker, Personal Merchant Express)
+UnlimitedConsumable – For Permanent Self-Style Hair Kit
+guild_upgrade_id (number, optional) – The id for the Guild Decoration which will be deposited into the Guild storage uppon consumption of the Item; resolvable against API:2/guild/upgrades.
+vendor_ids (array of numbers, optional)
+Miniature
+For miniatures (MiniPets), the details object contains the following property:
+
+minipet_id (number) – The miniature it unlocks and can be resolved against /v2/minis
+Salvage kits
+For salvage kits (tools), the details object contains the following properties:
+
+type (string) – The tool type. Always Salvage
+charges (number) – Number of charges.
+Trinket
+For trinkets, the details object contains the following properties:
+
+type (string) – The trinket type. Possible values:
+Accessory – Accessory
+Amulet – Amulet
+Ring – Ring
+infusion_slots (array of objects) – Infusion slots of the trinket (see below).
+attribute_adjustment (number) – The (x) value to be combined with the (m, gradient) multiplier and (c, offset) value to calculate the value of an attribute using API:2/itemstats.
+infix_upgrade (object, optional) – The infix upgrade object (see below).
+suffix_item_id (number, optional) – The suffix item id. This is usually a jewel or gem.
+secondary_suffix_item_id (string) – The secondary suffix item id. Equals to an empty string if there is no secondary suffix item.
+stat_choices (array of numbers, optional) – A list of selectable stat IDs which are visible in API:2/itemstats
+Upgrade component
+For upgrade components, the details object contains the following properties:
+
+type (string) – The type of the upgrade component. Possible values:
+Default – Infusions and Jewels (and historical PvP runes/sigils)
+Gem – Universal upgrades (Gemstones, Doubloons, and Marks/Crests/etc.)
+Rune – Rune
+Sigil – Sigil
+flags (array of strings) – The items that can be upgraded with the upgrade component. Possible values:
+Weapons: Axe, Dagger, Focus,Greatsword, Hammer, Harpoon, LongBow, Mace, Pistol, Rifle, Scepter, Shield, ShortBow, Speargun, Staff, Sword, Torch, Trident, Warhorn
+Armor: HeavyArmor, MediumArmor, LightArmor
+Trinkets: Trinket
+infusion_upgrade_flags (array of strings) – Applicable infusion slot for infusion upgrades. Possible values:
+Enrichment – Enrichments
+Infusion – Infusions
+suffix (string) – The suffix appended to the item name when the component is applied.
+infix_upgrade (object) – The infix upgrade object (see below).
+bonuses (list of strings, optional) – The bonuses from runes.
+Note: For runes, the effect is specified in the bonuses property. In that case, the infix_upgrade does not contain a buff property. All other upgrade components don't list a bonuses property but specify all their effects in the buff subproperty.
+
+Weapon
+For weapons, the details object contains the following properties:
+
+type (string) – The weapon type.
+One-handed main hand: Axe, Dagger, Mace, Pistol, Scepter, Sword
+One-handed off hand: Focus, Shield, Torch, Warhorn
+Two-handed: Greatsword, Hammer, LongBow, Rifle, ShortBow, Staff
+Aquatic: Harpoon, Speargun, Trident
+Other: LargeBundle, SmallBundle, Toy, ToyTwoHanded
+damage_type (string) – The damage type.
+Fire – Fire damage
+Ice – Ice damage
+Lightning – Lighting damage
+Physical – Physical damage.
+Choking
+min_power (number) – Minimum weapon strength.
+max_power (number) – Maximum weapon strength.
+defense (number) – The defense value of the weapon (for shields).
+infusion_slots (array of objects) – Infusion slots of the weapon (see below).
+attribute_adjustment (number) – The (x) value to be combined with the (m, gradient) multiplier and (c, offset) value to calculate the value of an attribute using API:2/itemstats.
+infix_upgrade (object, optional) – The infix upgrade object (see below).
+suffix_item_id (number, optional) – The suffix item id. This is usually a sigil.
+secondary_suffix_item_id (string) – The secondary suffix item id. Equals to an empty string if there is no secondary suffix item.
+stat_choices (array of numbers, optional) – A list of selectable stats IDs which are visible in API:2/itemstats
+Other types
+Crafting materials, Jade Tech Sensors and Service Chips, Power Cores, Relics, Trophies, and Traits don't have an additional details object.
+
+Subobjects
+Infix upgrade subobject
+The infix upgrade is an object with the following properties:
+
+id (number) – The itemstat id that can be resolved against /v2/itemstats. The usual whitelist restrictions apply and not all itemstats may be visible.
+attributes (array of object) – List of attribute bonuses. Each object contains the following properties:
+attribute (string) – Attribute this bonus applies to. Possible values:
+AgonyResistance – Agony Resistance
+BoonDuration – Concentration
+ConditionDamage – Condition Damage
+ConditionDuration – Expertise
+CritDamage – Ferocity
+Healing – Healing Power
+Power – Power
+Precision – Precision
+Toughness – Toughness
+Vitality – Vitality
+modifier (number) – The modifier value.
+buff (object, optional) – Object containing an additional effect. This is used for Boon Duration, Condition Duration, or additional attribute bonuses for ascended trinkets or back items. It has the following properties:
+skill_id (number) – The skill id of the effect.
+description (string, optional) – The effect's description.
+Infusion slots subobject
+An infusion slots object is an object with the following properties:
+
+flags (array of strings) – Infusion slot type of infusion upgrades. The array contains a maximum of one value. Possible values:
+Enrichment – Item has an enrichment slot.
+Infusion – Item has an infusion slot.
+item_id (number, optional) – The infusion upgrade already in the armor piece. Only used for +5 Agony Infusions (id 49428).[verification requested]
+Note: If no infusion slot is present, the value of the infusion_slots property is an empty array. For each present upgrade slot, a flag object as defined above is present.
+
+Example
+https://api.guildwars2.com/v2/items/28445
+
+{
+  "name": "Strong Soft Wood Longbow of Fire",
+  "description": "",
+  "type": "Weapon",
+  "level": 44,
+  "rarity": "Masterwork",
+  "vendor_value": 120,
+  "default_skin": 3942,
+  "game_types": [ "Activity", "Dungeon", "Pve", "Wvw" ],
+  "flags": [ "SoulBindOnUse" ],
+  "restrictions": [],
+  "id": 28445,
+  "chat_link":"[&AgEdbwAA]",
+  "icon": "https://render.guildwars2.com/file/C6110F52DF5AFE0F00A56F9E143E9732176DDDE9/65015.png",
+  "details": {
+    "type": "LongBow",
+    "damage_type": "Physical",
+    "min_power": 385,
+    "max_power": 452,
+    "defense": 0,
+    "infusion_slots": [],
+    "infix_upgrade": {
+      "attributes": [
+        { "attribute": "Power", "modifier": 62 },
+        { "attribute": "Precision", "modifier": 44 }
+      ]
+    },
+    "suffix_item_id": 24547,
+    "secondary_suffix_item_id": ""
+  }
+}
+https://api.guildwars2.com/v2/items/12452
+
+ {
+   "name": "Omnomberry Bar",
+   "type": "Consumable",
+   "level": 80,
+   "rarity": "Fine",
+   "vendor_value": 33,
+   "game_types": [
+       "Wvw",
+       "Dungeon",
+       "Pve"
+   ],
+   "flags": [
+       "NoSell"
+   ],
+   "restrictions": [ ],
+   "id": 12452,
+   "chat_link": "[&AgGkMAAA]",
+   "icon": "https://render.guildwars2.com/file/6BD5B65FBC6ED450219EC86DD570E59F4DA3791F/433643.png",
+   "details": {
+       "type": "Food",
+       "duration_ms": 1800000,
+       "apply_count": 1,
+       "name": "Nourishment",
+       "icon": "https://render.guildwars2.com/file/779D3F0ABE5B46C09CFC57374DA8CC3A495F291C/436367.png",
+       "description": "30% Magic Find\n40% Gold from Monsters\n+10% Experience from Kills"
+   }
+ }

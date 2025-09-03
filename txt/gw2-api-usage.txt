@@ -1,0 +1,20 @@
+Usage
+Authentication
+Primary article: API:API key
+Most endpoints return general results about game data and so do not require authentication.
+
+The endpoints that can be used to return specific user or guild data require authentication via an API key in one of two ways.
+
+Authorization request header: Authorization: Bearer [api key]
+access_token query parameter: ?access_token=[api key]
+As most browsers prevent CORS, the request header method will only be possible via custom applications. If using a browser, use a query parameter. Additionally, preflight requests are not supported by the API backend.
+
+Schema Versions
+Primary article: API:2#Schemas
+Selected version 2 endpoints support different schema versions as a way to introduce changes in the returned data without breaking applications.
+
+The schema version can be supplied by using the v=<schema> query parameter.
+
+Cache Validation
+Section-stub. This key section of the article is incomplete. You can help the Guild Wars 2 Wiki by expanding it.
+Reason: Missing write-up on how to use Last-Modified response headers and If-Modified-Since request headers.

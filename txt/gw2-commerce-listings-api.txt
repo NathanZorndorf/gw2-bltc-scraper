@@ -1,0 +1,73 @@
+API:2/commerce/listings
+< API:2‎ | commerce
+Jump to navigationJump to search
+/v2/commerce/listings
+
+HTTP methodGETFormatjsonAPI versionversion 2Release date2014-09-08ScopenoneOptionalnone
+This resource returns current buy and sell listings from the trading post.
+
+Parameters
+ids (optional list of numbers) – A comma-separated list of item ids to query the listings for.
+A single id can also be requested as a subresource.
+
+Response
+If the root endpoint (/v2/commerce/listings) is accessed without specifying an id, a list of all ids is returned. When multiple ids are requested using the ids parameter, a list of response objects is returned.
+
+For each requested item id, an object with the following properties is returned:
+
+id (number) – The item id.
+buys (array) – A list of all buy listings, descending from highest buy order.
+sells (array) – A list of all sell listings, ascending from lowest sell offer.
+Each listing object has the following properties:
+
+listings (number) – The number of individual listings this object refers to (e.g. two players selling at the same price will end up in the same listing)
+unit_price (number) – The sell offer or buy order price in coins.
+quantity (number) – The amount of items being sold/bought in this listing.
+Example
+https://api.guildwars2.com/v2/commerce/listings/19684
+
+{
+  "id": 19684,
+  "buys": [
+    { "listings": 105, "unit_price":   9, "quantity": 7033 },
+    { "listings":   1, "unit_price":   5, "quantity":   45 },
+    { "listings":  23, "unit_price":   1, "quantity": 1962 },
+    …
+  ],
+  "sells": [
+    { "listings":   1, "unit_price":  99, "quantity":   211 },
+    { "listings":   5, "unit_price": 100, "quantity":   699 },
+    { "listings":  74, "unit_price": 101, "quantity": 17746 },
+    …
+  ]
+}
+http://api.guildwars2.com/v2/commerce/listings?ids=19684,19709
+``
+[
+  {
+    "id": 19709,
+    "buys": [
+      { "listings": 81, "unit_price":  8, "quantity": 3092 },
+      { "listings":  9, "unit_price":  1, "quantity":  335 },
+      …
+    ],
+    "sells": [
+      { "listings":  2, "unit_price": 63, "quantity":  499 },
+      { "listings":  3, "unit_price": 64, "quantity":  289 },
+      …
+    ]
+  },
+  {
+    "id": 19684,
+    "buys": [
+      { "listings":  1, "unit_price":  5, "quantity":   45 },
+      { "listings": 23, "unit_price":  1, "quantity": 1962 },
+      …
+    ],
+    "sells": [
+      { "listings":  4, "unit_price": 98, "quantity":  951 },
+      { "listings":  1, "unit_price": 99, "quantity":  211 },
+      …
+    ]
+  }
+]
